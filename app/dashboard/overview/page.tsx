@@ -1,23 +1,59 @@
+"use client"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { useSession } from "next-auth/react"
 
 export default function DashboardPage() {
+  const { data: session } = useSession()
+  
+  const userName = session?.user?.name || session?.user?.email || 'traveler'
+  const firstName = userName.split(' ')[0] || userName.split('@')[0] || 'traveler'
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-heading font-bold text-stone-800">
-            Dashboard
+            Welcome back, {firstName}! 👋
           </h1>
           <p className="text-stone-600 text-zen">
-            Welcome back! Here&apos;s an overview of your Japan trip planning progress.
+            Here&apos;s your Japan trip planning dashboard. Ready to continue your adventure?
           </p>
         </div>
         <Button className="bg-tea-600 hover:bg-tea-700 w-fit">
           Create New Trip
         </Button>
       </div>
+
+      {/* Getting Started Message */}
+      <Card className="shadow-zen border-tea-200 bg-gradient-to-r from-tea-50 to-bamboo-50">
+        <CardHeader>
+          <CardTitle className="text-tea-700 flex items-center gap-2">
+            🎌 Welcome to Your Japan Trip Planner!
+          </CardTitle>
+          <CardDescription>
+            Your account is set up and ready! Start planning your perfect journey to Japan.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Button variant="outline" className="justify-start h-auto p-4">
+              <div className="text-left">
+                <div className="font-medium">🗾 Plan Your Itinerary</div>
+                <div className="text-xs text-stone-500">Add destinations and activities</div>
+              </div>
+            </Button>
+            <Button variant="outline" className="justify-start h-auto p-4">
+              <div className="text-left">
+                <div className="font-medium">🏨 Book Reservations</div>
+                <div className="text-xs text-stone-500">Hotels, restaurants, and experiences</div>
+              </div>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -27,8 +63,8 @@ export default function DashboardPage() {
             <span className="text-2xl">🗾</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-stone-800">3</div>
-            <p className="text-xs text-stone-500">2 active, 1 completed</p>
+            <div className="text-2xl font-bold text-stone-800">0</div>
+            <p className="text-xs text-stone-500">Ready to create your first trip!</p>
           </CardContent>
         </Card>
 
@@ -38,8 +74,8 @@ export default function DashboardPage() {
             <span className="text-2xl">🎌</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-stone-800">12</div>
-            <p className="text-xs text-stone-500">Next: Hotel check-in in 2 days</p>
+            <div className="text-2xl font-bold text-stone-800">0</div>
+            <p className="text-xs text-stone-500">No reservations yet</p>
           </CardContent>
         </Card>
 
@@ -49,8 +85,8 @@ export default function DashboardPage() {
             <span className="text-2xl">🌸</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-stone-800">45</div>
-            <p className="text-xs text-stone-500">23 must-visit, 22 optional</p>
+            <div className="text-2xl font-bold text-stone-800">0</div>
+            <p className="text-xs text-stone-500">Time to explore Japan!</p>
           </CardContent>
         </Card>
 
@@ -60,8 +96,8 @@ export default function DashboardPage() {
             <span className="text-2xl">💰</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-stone-800">¥425K</div>
-            <p className="text-xs text-stone-500">68% of budget used</p>
+            <div className="text-2xl font-bold text-stone-800">¥0</div>
+            <p className="text-xs text-stone-500">Set your travel budget</p>
           </CardContent>
         </Card>
       </div>
@@ -72,19 +108,19 @@ export default function DashboardPage() {
         <Card className="shadow-zen">
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common tasks to help you plan your trip</CardDescription>
+            <CardDescription>Get started with these essential planning tools</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button variant="outline" className="w-full justify-start">
+            <Button variant="outline" className="w-full justify-start" onClick={() => alert('Feature coming soon!')}>
               📅 Add Itinerary Item
             </Button>
-            <Button variant="outline" className="w-full justify-start">
+            <Button variant="outline" className="w-full justify-start" onClick={() => alert('Feature coming soon!')}>
               🏨 Make Reservation
             </Button>
-            <Button variant="outline" className="w-full justify-start">
+            <Button variant="outline" className="w-full justify-start" onClick={() => alert('Feature coming soon!')}>
               📍 Add Location to Map
             </Button>
-            <Button variant="outline" className="w-full justify-start">
+            <Button variant="outline" className="w-full justify-start" onClick={() => alert('Feature coming soon!')}>
               ✅ Update Checklist
             </Button>
           </CardContent>
@@ -94,7 +130,7 @@ export default function DashboardPage() {
         <Card className="shadow-zen">
           <CardHeader>
             <CardTitle>Japan Weather</CardTitle>
-            <CardDescription>Current weather in your destinations</CardDescription>
+            <CardDescription>Current weather in popular destinations</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -133,33 +169,33 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Recent Activity */}
+      {/* Getting Started Guide */}
       <Card className="shadow-zen">
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Latest updates from your trip planning</CardDescription>
+          <CardTitle>Your Next Steps</CardTitle>
+          <CardDescription>Follow this guide to get the most out of your Japan trip planner</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div className="flex items-start space-x-3">
-              <div className="w-2 h-2 bg-tea-500 rounded-full mt-2"></div>
+              <div className="w-6 h-6 bg-tea-500 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
               <div className="flex-1">
-                <p className="text-sm font-medium">Added Tokyo Skytree to itinerary</p>
-                <p className="text-xs text-stone-500">2 hours ago</p>
+                <p className="text-sm font-medium">Create Your First Trip</p>
+                <p className="text-xs text-stone-500">Set your travel dates and destinations</p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
-              <div className="w-2 h-2 bg-bamboo-500 rounded-full mt-2"></div>
+              <div className="w-6 h-6 bg-bamboo-500 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
               <div className="flex-1">
-                <p className="text-sm font-medium">Hotel reservation confirmed</p>
-                <p className="text-xs text-stone-500">1 day ago</p>
+                <p className="text-sm font-medium">Plan Your Itinerary</p>
+                <p className="text-xs text-stone-500">Add activities and organize your daily schedule</p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
-              <div className="w-2 h-2 bg-sakura-500 rounded-full mt-2"></div>
+              <div className="w-6 h-6 bg-sakura-500 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
               <div className="flex-1">
-                <p className="text-sm font-medium">Updated packing checklist</p>
-                <p className="text-xs text-stone-500">3 days ago</p>
+                <p className="text-sm font-medium">Book Reservations</p>
+                <p className="text-xs text-stone-500">Secure your accommodations and restaurant bookings</p>
               </div>
             </div>
           </div>
