@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { signIn } from "@/auth"
 
 export default function SignUpPage() {
   return (
@@ -12,18 +13,25 @@ export default function SignUpPage() {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-4">
-          <Button className="w-full bg-tea-600 hover:bg-tea-700">
-            Continue with Google
-          </Button>
-          <Button variant="outline" className="w-full">
-            Continue with Email
+          <form
+            action={async () => {
+              "use server"
+              await signIn("google", { redirectTo: "/dashboard" })
+            }}
+          >
+            <Button type="submit" className="w-full bg-tea-600 hover:bg-tea-700">
+              Continue with Google
+            </Button>
+          </form>
+          <Button variant="outline" className="w-full" disabled>
+            Continue with Email (Coming Soon)
           </Button>
         </div>
         
         <div className="text-center">
           <p className="text-sm text-stone-600">
             Already have an account?{" "}
-            <a href="/auth/sign-in" className="text-tea-600 hover:text-tea-700 font-medium">
+            <a href="/sign-in" className="text-tea-600 hover:text-tea-700 font-medium">
               Sign in
             </a>
           </p>

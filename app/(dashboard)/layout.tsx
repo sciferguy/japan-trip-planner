@@ -1,11 +1,21 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+// import { auth, signOut } from "@/auth"
+// import { redirect } from "next/navigation"
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  // const session = await auth()
+  
+  // if (!session) {
+  //   redirect('/sign-in')
+  // }
+  
+  // Mock session for now
+  const session = { user: { name: "Demo User", email: "demo@example.com" } }
   return (
     <div className="min-h-screen bg-gradient-to-br from-tea-50 via-stone-50 to-bamboo-50">
       {/* Navigation */}
@@ -22,33 +32,35 @@ export default function DashboardLayout({
               <Link href="/dashboard" className="text-stone-600 hover:text-stone-800 font-medium">
                 Dashboard
               </Link>
-              <Link href="/dashboard/itinerary" className="text-stone-600 hover:text-stone-800 font-medium">
+              <Link href="/itinerary" className="text-stone-600 hover:text-stone-800 font-medium">
                 Itinerary
               </Link>
-              <Link href="/dashboard/map" className="text-stone-600 hover:text-stone-800 font-medium">
+              <Link href="/map" className="text-stone-600 hover:text-stone-800 font-medium">
                 Map
               </Link>
-              <Link href="/dashboard/reservations" className="text-stone-600 hover:text-stone-800 font-medium">
+              <Link href="/reservations" className="text-stone-600 hover:text-stone-800 font-medium">
                 Reservations
               </Link>
-              <Link href="/dashboard/checklists" className="text-stone-600 hover:text-stone-800 font-medium">
+              <Link href="/checklists" className="text-stone-600 hover:text-stone-800 font-medium">
                 Checklists
               </Link>
-              <Link href="/dashboard/expenses" className="text-stone-600 hover:text-stone-800 font-medium">
+              <Link href="/expenses" className="text-stone-600 hover:text-stone-800 font-medium">
                 Expenses
               </Link>
-              <Link href="/dashboard/activities" className="text-stone-600 hover:text-stone-800 font-medium">
+              <Link href="/activities" className="text-stone-600 hover:text-stone-800 font-medium">
                 Activities
               </Link>
             </div>
             
             <div className="flex items-center space-x-4">
-              <Button variant="outline" size="sm">
-                Profile
-              </Button>
-              <Button variant="ghost" size="sm">
-                Sign Out
-              </Button>
+              <span className="text-sm text-stone-600">
+                Welcome, {session.user?.name || session.user?.email}
+              </span>
+              <Link href="/">
+                <Button variant="ghost" size="sm">
+                  Sign Out
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

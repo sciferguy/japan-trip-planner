@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import Link from "next/link"
 
 export default function SignInPage() {
   return (
@@ -12,18 +13,20 @@ export default function SignInPage() {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-4">
-          <Button className="w-full bg-tea-600 hover:bg-tea-700">
-            Continue with Google
-          </Button>
-          <Button variant="outline" className="w-full">
-            Continue with Email
+          <Link href="/dashboard">
+            <Button className="w-full bg-tea-600 hover:bg-tea-700">
+              Continue with Google (Demo)
+            </Button>
+          </Link>
+          <Button variant="outline" className="w-full" disabled>
+            Continue with Email (Coming Soon)
           </Button>
         </div>
         
         <div className="text-center">
           <p className="text-sm text-stone-600">
             Don&apos;t have an account?{" "}
-            <a href="/auth/sign-up" className="text-tea-600 hover:text-tea-700 font-medium">
+            <a href="/sign-up" className="text-tea-600 hover:text-tea-700 font-medium">
               Sign up
             </a>
           </p>
