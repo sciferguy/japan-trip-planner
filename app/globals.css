@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 248 248 246;
+  --foreground: 38 35 31;
+
+  --card: 255 255 255;
+  --card-foreground: 38 35 31;
+
+  --popover: 255 255 255;
+  --popover-foreground: 38 35 31;
+
+  --primary: 166 127 95;
+  --primary-foreground: 249 247 244;
+
+  --secondary: 239 237 231;
+  --secondary-foreground: 110 99 86;
+
+  --muted: 239 237 231;
+  --muted-foreground: 132 120 111;
+
+  --accent: 225 213 198;
+  --accent-foreground: 110 99 86;
+
+  --destructive: 231 90 95;
+  --destructive-foreground: 249 247 244;
+
+  --border: 221 216 207;
+  --input: 221 216 207;
+  --ring: 166 127 95;
+
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: 38 35 31;
+  --foreground: 248 248 246;
+
+  --card: 45 34 25;
+  --card-foreground: 241 235 227;
+
+  --popover: 45 34 25;
+  --popover-foreground: 241 235 227;
+
+  --primary: 196 151 122;
+  --primary-foreground: 45 34 25;
+
+  --secondary: 52 45 35;
+  --secondary-foreground: 241 235 227;
+
+  --muted: 52 45 35;
+  --muted-foreground: 132 120 111;
+
+  --accent: 84 61 51;
+  --accent-foreground: 241 235 227;
+
+  --destructive: 180 44 49;
+  --destructive-foreground: 241 235 227;
+
+  --border: 84 61 51;
+  --input: 84 61 51;
+  --ring: 196 151 122;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-zen {
+    letter-spacing: 0.02em;
+    line-height: 1.6;
+  }
+  
+  .shadow-zen {
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.08), 0 2px 8px -2px rgba(0, 0, 0, 0.04);
+  }
+  
+  .shadow-zen-lg {
+    box-shadow: 0 10px 40px -4px rgba(0, 0, 0, 0.1), 0 4px 16px -4px rgba(0, 0, 0, 0.06);
+  }
+  
+  .gradient-sakura {
+    background: linear-gradient(135deg, theme('colors.sakura.100') 0%, theme('colors.sakura.200') 100%);
+  }
+  
+  .gradient-bamboo {
+    background: linear-gradient(135deg, theme('colors.bamboo.100') 0%, theme('colors.bamboo.200') 100%);
+  }
+  
+  .gradient-tea {
+    background: linear-gradient(135deg, theme('colors.tea.100') 0%, theme('colors.tea.200') 100%);
+  }
+}
