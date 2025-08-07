@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 export default function Home() {
   return (
@@ -141,12 +142,16 @@ export default function Home() {
               <span className="bg-white/60 px-3 py-1 rounded-full">PWA Support</span>
             </div>
             <div className="space-x-4">
-              <Button className="bg-tea-600 hover:bg-tea-700 text-white">
-                Get Started
-              </Button>
-              <Button variant="outline" className="border-tea-600 text-tea-700 hover:bg-tea-50">
-                View Documentation
-              </Button>
+              <Link href="/sign-up">
+                <Button className="bg-tea-600 hover:bg-tea-700 text-white">
+                  Get Started
+                </Button>
+              </Link>
+              <Link href="/docs">
+                <Button variant="outline" className="border-tea-600 text-tea-700 hover:bg-tea-50">
+                  View Documentation
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
