@@ -1,0 +1,267 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_DIRECT_URL")
+}
+
+// Users with roles
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      UserRole @default(VIEWER)
+  avatarUrl String?  @map("avatar_url")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  createdTrips     Trip[]
+  tripMemberships  TripMember[]
+  itineraryItems   ItineraryItem[]
+  reservations     Reservation[]
+  checklistItems   ChecklistItem[]
+  expenses         Expense[]
+
+  @@map("users")
+}
+
+// Main trip data
+model Trip {
+  id          String   @id @default(cuid())
+  title       String
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  creator        User             @relation(fields: [createdBy], references: [id])
+  members        TripMember[]
+  itineraryItems ItineraryItem[]
+  locations      Location[]
+  reservations   Reservation[]
+  checklistItems ChecklistItem[]
+  expenses       Expense[]
+  activities     Activity[]
+
+  @@map("trips")
+}
+
+// User access to trips
+model TripMember {
+  id          String           @id @default(cuid())
+  tripId      String           @map("trip_id")
+  userId      String           @map("user_id")
+  role        TripMemberRole   @default(VIEWER)
+  permissions TripPermission[]
+
+  // Relations
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, userId])
+  @@map("trip_members")
+}
+
+// Daily itinerary items
+model ItineraryItem {
+  id          String              @id @default(cuid())
+  tripId      String              @map("trip_id")
+  day         Int
+  title       String
+  description String?
+  startTime   DateTime?           @map("start_time")
+  endTime     DateTime?           @map("end_time")
+  locationId  String?             @map("location_id")
+  type        ItineraryItemType
+  createdBy   String              @map("created_by")
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  // Relations
+  trip     Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  location Location? @relation(fields: [locationId], references: [id])
+  creator  User      @relation(fields: [createdBy], references: [id])
+
+  @@map("itinerary_items")
+}
+
+// Location data with custom pins
+model Location {
+  id            String   @id @default(cuid())
+  name          String
+  address       String
+  lat           Float
+  lng           Float
+  googlePlaceId String?  @map("google_place_id")
+  customNotes   String?  @map("custom_notes")
+  pinType       PinType  @map("pin_type")
+  tripId        String   @map("trip_id")
+
+  // Relations
+  trip           Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  itineraryItems ItineraryItem[]
+  reservations   Reservation[]
+  expenses       Expense[]
+  activities     Activity[]
+
+  @@map("locations")
+}
+
+// Reservations and bookings
+model Reservation {
+  id               String          @id @default(cuid())
+  tripId           String          @map("trip_id")
+  type             ReservationType
+  title            String
+  confirmationCode String?         @map("confirmation_code")
+  dateTime         DateTime        @map("date_time")
+  locationId       String?         @map("location_id")
+  cost             Float?
+  notes            String?
+  createdBy        String          @map("created_by")
+  createdAt        DateTime        @default(now()) @map("created_at")
+
+  // Relations
+  trip     Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  location Location? @relation(fields: [locationId], references: [id])
+  creator  User      @relation(fields: [createdBy], references: [id])
+  expenses Expense[]
+
+  @@map("reservations")
+}
+
+// Personal checklists
+model ChecklistItem {
+  id        String          @id @default(cuid())
+  tripId    String          @map("trip_id")
+  userId    String          @map("user_id")
+  title     String
+  completed Boolean         @default(false)
+  category  ChecklistCategory
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  // Relations
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("checklist_items")
+}
+
+// Private expenses
+model Expense {
+  id            String           @id @default(cuid())
+  tripId        String           @map("trip_id")
+  userId        String           @map("user_id")
+  amount        Float
+  category      ExpenseCategory
+  description   String
+  date          DateTime
+  reservationId String?          @map("reservation_id")
+  locationId    String?          @map("location_id")
+  createdAt     DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  trip        Trip         @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reservation Reservation? @relation(fields: [reservationId], references: [id])
+  location    Location?    @relation(fields: [locationId], references: [id])
+
+  @@map("expenses")
+}
+
+// Activities and sightseeing
+model Activity {
+  id                String   @id @default(cuid())
+  tripId            String   @map("trip_id")
+  title             String
+  description       String?
+  locationId        String?  @map("location_id")
+  estimatedDuration Int?     @map("estimated_duration") // in minutes
+  priority          Priority @default(MEDIUM)
+  completed         Boolean  @default(false)
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  // Relations
+  trip     Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  location Location? @relation(fields: [locationId], references: [id])
+
+  @@map("activities")
+}
+
+// Enums
+enum UserRole {
+  SUPER_USER
+  COLLABORATOR
+  VIEWER
+}
+
+enum TripMemberRole {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum TripPermission {
+  EDIT_ITINERARY
+  MANAGE_RESERVATIONS
+  MANAGE_EXPENSES
+  MANAGE_ACTIVITIES
+  VIEW_ONLY
+}
+
+enum ItineraryItemType {
+  ACTIVITY
+  TRANSPORT
+  MEAL
+  ACCOMMODATION
+  MEETING
+  FREE_TIME
+}
+
+enum PinType {
+  HOTEL
+  RESTAURANT
+  ATTRACTION
+  TRAIN_STATION
+  AIRPORT
+  SHOPPING
+  CUSTOM
+}
+
+enum ReservationType {
+  FLIGHT
+  HOTEL
+  TRAIN
+  RESTAURANT
+  ACTIVITY
+  TRANSPORT
+}
+
+enum ChecklistCategory {
+  PACKING
+  DOCUMENTS
+  SHOPPING
+  PREPARATION
+  OTHER
+}
+
+enum ExpenseCategory {
+  FOOD
+  TRANSPORT
+  SHOPPING
+  ACTIVITIES
+  ACCOMMODATION
+  OTHER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
