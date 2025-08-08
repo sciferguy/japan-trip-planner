@@ -18,7 +18,7 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           <Link href="/itinerary" className="block group">
-            <Card className="shadow-zen hover:shadow-zen-lg transition-shadow duration-300 group-hover:scale-105 transform">
+            <Card className="shadow-zen hover:shadow-zen-lg transition-all duration-300 group-hover:scale-105 transform">
               <CardHeader>
                 <CardTitle className="text-tea-700 flex items-center gap-2">
                   🗾 Itinerary Planning
