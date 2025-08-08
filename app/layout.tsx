@@ -14,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">
+      <body className="antialiased bg-gradient-to-br from-tea-50 via-stone-50 to-bamboo-50 font-sans">
         <SessionProvider>
           {children}
         </SessionProvider>

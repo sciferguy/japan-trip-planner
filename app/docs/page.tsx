@@ -70,7 +70,7 @@ export default function DocsPage() {
                 Back to Home
               </Button>
             </Link>
-            <Link href="/sign-up">
+            <Link href="/itinerary">
               <Button variant="outline" className="border-tea-600 text-tea-700 hover:bg-tea-50">
                 Get Started
               </Button>
