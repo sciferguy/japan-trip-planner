@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
+import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "Japan Trip Planner",
@@ -14,9 +15,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased bg-gradient-to-br from-tea-50 via-stone-50 to-bamboo-50 font-sans">
+      <body className="antialiased bg-gradient-to-br from-tea-50 via-stone-50 to-bamboo-50 font-sans min-h-screen flex flex-col">
         <SessionProvider>
-          {children}
+          <main className="flex-1">
+            {children}
+          </main>
+          <Footer />
         </SessionProvider>
       </body>
     </html>
