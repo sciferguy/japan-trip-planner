@@ -49,7 +49,6 @@ export const config = {
   ],
   pages: {
     signIn: "/sign-in",
-    signUp: "/sign-up",
   },
   callbacks: {
     async session({ session, token }) {
