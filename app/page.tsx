@@ -1,5 +1,4 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
 export default function Home() {
@@ -136,36 +135,6 @@ export default function Home() {
               </CardContent>
             </Card>
           </Link>
-        </div>
-
-        <div className="text-center">
-          <div className="gradient-sakura inline-block p-8 rounded-2xl shadow-zen-lg">
-            <h2 className="text-2xl font-heading font-bold text-stone-800 mb-4">
-              Built with Modern Technology
-            </h2>
-            <div className="flex flex-wrap justify-center gap-4 text-sm text-stone-700 mb-6">
-              <span className="bg-white/60 px-3 py-1 rounded-full">Next.js 15</span>
-              <span className="bg-white/60 px-3 py-1 rounded-full">TypeScript</span>
-              <span className="bg-white/60 px-3 py-1 rounded-full">Supabase</span>
-              <span className="bg-white/60 px-3 py-1 rounded-full">Prisma</span>
-              <span className="bg-white/60 px-3 py-1 rounded-full">Zustand</span>
-              <span className="bg-white/60 px-3 py-1 rounded-full">Tailwind CSS</span>
-              <span className="bg-white/60 px-3 py-1 rounded-full">Mapbox GL JS</span>
-              <span className="bg-white/60 px-3 py-1 rounded-full">PWA Support</span>
-            </div>
-            <div className="space-x-4">
-              <Link href="/itinerary">
-                <Button className="bg-tea-600 hover:bg-tea-700 text-white">
-                  Get Started
-                </Button>
-              </Link>
-              <Link href="/docs">
-                <Button variant="outline" className="border-tea-600 text-tea-700 hover:bg-tea-50">
-                  View Documentation
-                </Button>
-              </Link>
-            </div>
-          </div>
         </div>
       </div>
     </div>
