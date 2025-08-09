@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
@@ -16,24 +16,6 @@ export default function DocsPage() {
         </div>
 
         <div className="max-w-4xl mx-auto">
-          <Card className="shadow-zen mb-8">
-            <CardHeader>
-              <CardTitle className="text-tea-700">🚀 Getting Started</CardTitle>
-              <CardDescription>
-                Follow these steps to begin planning your Japan adventure
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ol className="list-decimal list-inside space-y-2 text-stone-600">
-                <li>Create an account or sign in</li>
-                <li>Create your first trip with dates</li>
-                <li>Add destinations and plan your itinerary</li>
-                <li>Track expenses and manage reservations</li>
-                <li>Use checklists to prepare for your journey</li>
-              </ol>
-            </CardContent>
-          </Card>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <Card className="shadow-zen">
               <CardHeader>
@@ -70,7 +52,7 @@ export default function DocsPage() {
                 Back to Home
               </Button>
             </Link>
-            <Link href="/itinerary">
+            <Link href="/get-started">
               <Button variant="outline" className="border-tea-600 text-tea-700 hover:bg-tea-50">
                 Get Started
               </Button>
