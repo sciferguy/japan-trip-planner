@@ -129,4 +129,4 @@ Japan Trip Planner is a modern, thoughtfully designed **mobile-first web applica
 ---
 
 **Reference PR:**  
-[Update footer: responsive widths for tablet/desktop and hover expansion on desktop](https://github.com/sciferguy/japan-trip-planner/pull/10)
+---
