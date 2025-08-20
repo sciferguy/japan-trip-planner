@@ -1,8 +1,16 @@
+// app/api/itinerary-items/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
+
+// (Optional) simple runtime validation without extra deps
+function toNumber(val: unknown, field: string): number {
+  const n = Number(val)
+  if (!Number.isFinite(n)) throw new Error(`Invalid ${field}`)
+  return n
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,7 +19,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const userId =
+      // adjust according to your auth shape
+      (session.user as any).id ||
+      (session.user as any).sub ||
+      session.user.email
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Missing user id' }, { status: 400 })
+    }
+
     const body = await request.json()
+
     const {
       title,
       description,
@@ -22,48 +41,69 @@ export async function POST(request: NextRequest) {
       trip_id,
       location_name,
       location_address
-    } = body
+    } = body || {}
 
-    // Create location if provided
-    let locationId = null
+    if (!title || !type || !trip_id || day == null) {
+      return NextResponse.json(
+        { error: 'Missing required fields (title, type, trip_id, day)' },
+        { status: 400 }
+      )
+    }
+
+    const numericDay = toNumber(day, 'day')
+
+    // Optional: enforce allowed enum values (adjust list to your schema)
+    const allowedTypes = [
+      'ACTIVITY',
+      'TRANSPORT',
+      'MEAL',
+      'ACCOMMODATION',
+      'MEETING',
+      'FREE_TIME'
+    ]
+    if (!allowedTypes.includes(type)) {
+      return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
+    }
+
+    let locationId: string | null = null
     if (location_name) {
       const location = await prisma.locations.create({
         data: {
-          id: `loc-${Date.now()}`, // Generate unique ID
+          id: `loc-${Date.now()}`,
+            // If your schema requires created_by for locations add it here similarly
           name: location_name,
           address: location_address || '',
-          lat: 0, // Default values - you can update these later
+          lat: 0,
           lng: 0,
-          pin_type: 'CUSTOM', // Assuming this is an enum value
-          trips: {} // Default empty JSON object
+          pin_type: 'CUSTOM',
+          trips: {} // adjust/remove if schema differs
         }
       })
       locationId = location.id
     }
 
-    // Create itinerary item
     const item = await prisma.itinerary_items.create({
       data: {
         title,
-        description: description || null,
-        day: parseInt(day),
+        description: description ? String(description) : null,
+        day: numericDay,
         start_time: start_time ? new Date(start_time) : null,
         end_time: end_time ? new Date(end_time) : null,
         type,
-        trip_id,
-        location_id: locationId
+        trip_id: String(trip_id),
+        location_id: locationId,
+        created_by: userId
       },
       include: {
         locations: true
       }
     })
 
-    return NextResponse.json(item)
-  } catch (error) {
+    return NextResponse.json(item, { status: 201 })
+  } catch (error: any) {
     console.error('Error creating itinerary item:', error)
-    return NextResponse.json(
-      { error: 'Failed to create itinerary item' },
-      { status: 500 }
-    )
+    const message =
+      error instanceof Error ? error.message : 'Failed to create itinerary item'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

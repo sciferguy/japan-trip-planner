@@ -44,12 +44,13 @@ interface Props {
 }
 
 const typeColors = {
-  activity: 'bg-blue-100 text-blue-800',
-  transport: 'bg-green-100 text-green-800',
-  meal: 'bg-orange-100 text-orange-800',
-  accommodation: 'bg-purple-100 text-purple-800',
-  other: 'bg-gray-100 text-gray-800'
-}
+  ACTIVITY: 'bg-blue-100 text-blue-800',
+  TRANSPORT: 'bg-green-100 text-green-800',
+  MEAL: 'bg-orange-100 text-orange-800',
+  ACCOMMODATION: 'bg-purple-100 text-purple-800',
+  MEETING: 'bg-yellow-100 text-yellow-800',
+  FREE_TIME: 'bg-gray-100 text-gray-800'
+} as const
 
 export function ItineraryClientWrapper({ trip, groupedItems, userId }: Props) {
   const router = useRouter()
@@ -60,7 +61,7 @@ export function ItineraryClientWrapper({ trip, groupedItems, userId }: Props) {
 
     setDeletingId(itemId)
     try {
-      const response = await fetch(`/api/itinerary/${itemId}`, {
+      const response = await fetch(`/api/itinerary-items/${itemId}`, {
         method: 'DELETE'
       })
 
@@ -184,7 +185,7 @@ export function ItineraryClientWrapper({ trip, groupedItems, userId }: Props) {
                           </h3>
                           <Badge
                             variant="secondary"
-                            className={typeColors[item.type as keyof typeof typeColors] || typeColors.other}
+                            className={typeColors[item.type as keyof typeof typeColors] || 'bg-gray-100 text-gray-800'}
                           >
                             {item.type}
                           </Badge>
@@ -252,3 +253,5 @@ export function ItineraryClientWrapper({ trip, groupedItems, userId }: Props) {
     </div>
   )
 }
+
+export default ItineraryClientWrapper
