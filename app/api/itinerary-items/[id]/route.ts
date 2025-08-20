@@ -1,4 +1,4 @@
-// File: app/api/itinerary-items/[id]/route.ts
+// app/api/itinerary-items/[id]/route.ts
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { run, ok, fail } from '@/lib/api/response'
@@ -10,19 +10,23 @@ import {
 } from '@/lib/validation/itinerary'
 import { getDayItemsWithOverlaps } from '@/lib/itinerary/overlaps'
 
+function toIso(d: Date | null | undefined) {
+  return d ? d.toISOString() : null
+}
+
 function mapItem(db: any, overlap?: boolean) {
   return {
     id: db.id,
     tripId: db.trip_id,
     dayId: db.day_id,
     title: db.title,
-    description: db.description,
-    startTime: db.start_time,
-    endTime: db.end_time,
-    locationId: db.location_id,
+    description: db.description ?? null,
+    startTime: toIso(db.start_time),
+    endTime: toIso(db.end_time),
+    locationId: db.location_id ?? null,
     type: db.type,
     createdBy: db.created_by,
-    createdAt: db.created_at,
+    createdAt: toIso(db.created_at),
     overlap: overlap ?? false
   }
 }
@@ -53,7 +57,6 @@ export const PATCH = (req: Request, { params }: { params: { id: string } }) =>
       return fail(400, 'NO_FIELDS', 'No fields to update')
     }
 
-    // Validate move across days
     if (data.dayId) {
       const newDay = await prisma.days.findUnique({ where: { id: data.dayId } })
       if (!newDay) return fail(404, 'DAY_NOT_FOUND', 'dayId not found')
@@ -70,7 +73,7 @@ export const PATCH = (req: Request, { params }: { params: { id: string } }) =>
         type: data.type ?? undefined,
         start_time: data.startTime
           ? new Date(data.startTime)
-          : (data.startTime === null ? null : undefined), // (null path unused unless schema adjusted)
+          : (data.startTime === null ? null : undefined),
         end_time: data.endTime
           ? new Date(data.endTime)
           : (data.endTime === null ? null : undefined),
@@ -89,8 +92,13 @@ export const PATCH = (req: Request, { params }: { params: { id: string } }) =>
       dayLists[dId] = list.map(i => mapItem(i, i.overlap))
     }
 
+    // Overlap flag for updated
+    const updatedOverlap = updated.day_id
+      ? (dayLists[updated.day_id].find(i => i.id === updated.id)?.overlap ?? false)
+      : false
+
     return ok({
-      updated: mapItem(updated),
+      updated: mapItem(updated, updatedOverlap),
       days: dayLists
     })
   })

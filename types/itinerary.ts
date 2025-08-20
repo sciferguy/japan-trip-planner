@@ -1,33 +1,35 @@
 // types/itinerary.ts
 export interface ItineraryItem {
   id: string
-  trip_id: string
-  day: number
+  tripId: string
+  dayId: string | null
   title: string
-  description?: string
-  start_time?: string
-  end_time?: string
-  location_id?: string
+  description: string | null
+  startTime: string | null
+  endTime: string | null
+  locationId: string | null
   type: 'ACTIVITY' | 'TRANSPORT' | 'MEAL' | 'ACCOMMODATION' | 'MEETING' | 'FREE_TIME'
-  created_by: string
-  created_at: string
-  locations?: {
-    id: string
-    name: string
-    address: string
-    lat: number
-    lng: number
-  } | null
+  createdBy: string
+  createdAt: string | null
+  overlap: boolean
 }
 
 export interface CreateItineraryItemData {
-  trip_id: string
-  day: number
+  dayId: string
   title: string
   description?: string
-  start_time?: string
-  end_time?: string
-  location_id?: string
+  startTime?: string
+  endTime?: string
+  locationId?: string
   type: ItineraryItem['type']
-  created_by: string
+}
+
+export interface PatchItineraryItemData {
+  title?: string
+  description?: string
+  startTime?: string
+  endTime?: string
+  locationId?: string | null
+  type?: ItineraryItem['type']
+  dayId?: string
 }

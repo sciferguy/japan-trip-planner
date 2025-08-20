@@ -1,135 +1,86 @@
-// prisma/seed.ts
-import { PrismaClient, TripMemberRole } from '@prisma/client'
-import { randomUUID } from 'node:crypto'
+// app/api/days/[dayId]/itinerary-items/route.ts
+import { auth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { run, ok, fail } from '@/lib/api/response'
+import { requireMembership, requireTripRole } from '@/lib/authz'
+import { TripMemberRole } from '@prisma/client'
+import { createItineraryItemSchema } from '@/lib/validation/itinerary'
+import { getDayItemsWithOverlaps } from '@/lib/itinerary/overlaps'
 
-const prisma = new PrismaClient()
-
-async function upsertUser(email: string, name: string) {
-  return prisma.user.upsert({
-    where: { email },
-    update: {},
-    create: { id: randomUUID(), email, name }
-  })
+function toIso(d: Date | null | undefined) {
+  return d ? d.toISOString() : null
 }
 
-function inclusiveDates(start: Date, end: Date): Date[] {
-  const out: Date[] = []
-  const d = new Date(start)
-  while (d <= end) {
-    out.push(new Date(d))
-    d.setDate(d.getDate() + 1)
+function mapItem(db: any, overlap?: boolean) {
+  return {
+    id: db.id,
+    tripId: db.trip_id,
+    dayId: db.day_id,
+    title: db.title,
+    description: db.description ?? null,
+    startTime: toIso(db.start_time),
+    endTime: toIso(db.end_time),
+    locationId: db.location_id ?? null,
+    type: db.type,
+    createdBy: db.created_by,
+    createdAt: toIso(db.created_at),
+    overlap: overlap ?? false
   }
-  return out
 }
 
-async function createTripWithDays(ownerId: string) {
-  const start = new Date()
-  const end = new Date(Date.now() + 1000 * 60 * 60 * 24 * 3)
-  const trip = await prisma.trips.create({
-    data: {
-      id: randomUUID(),
-      title: 'Sample Trip',
-      start_date: start,
-      end_date: end,
-      created_by: ownerId
-    }
+export const GET = (_req: Request, { params }: { params: { dayId: string } }) =>
+  run(async () => {
+    const session = await auth()
+    if (!session?.user?.id) return fail(401, 'UNAUTH', 'Unauthorized')
+    const day = await prisma.days.findUnique({ where: { id: params.dayId } })
+    if (!day) return fail(404, 'NOT_FOUND', 'Day not found')
+    await requireMembership(day.trip_id, session.user.id)
+
+    const items = await getDayItemsWithOverlaps(params.dayId)
+    return ok(items.map(i => mapItem(i, i.overlap)))
   })
-  const days = await Promise.all(
-    inclusiveDates(start, end).map(date =>
-      prisma.days.create({
-        data: {
-          id: randomUUID(),
-            trip_id: trip.id,
-            date
-        }
+
+export const POST = (req: Request, { params }: { params: { dayId: string } }) =>
+  run(async () => {
+    const session = await auth()
+    if (!session?.user?.id) return fail(401, 'UNAUTH', 'Unauthorized')
+    const day = await prisma.days.findUnique({ where: { id: params.dayId } })
+    if (!day) return fail(404, 'NOT_FOUND', 'Day not found')
+    await requireTripRole(day.trip_id, session.user.id, TripMemberRole.EDITOR)
+
+    const body = await req.json().catch(() => null)
+    if (!body) return fail(400, 'BAD_JSON', 'Invalid JSON')
+
+    const parsed = createItineraryItemSchema.safeParse({ ...body, dayId: params.dayId })
+    if (!parsed.success) {
+      return fail(400, 'VALIDATION', 'Validation failed', {
+        fieldErrors: parsed.error.flatten().fieldErrors
       })
-    )
-  )
-  return { trip, days }
-}
-
-async function addMembership(tripId: string, userId: string, role: TripMemberRole) {
-  return prisma.trip_members.upsert({
-    where: { trip_id_user_id: { trip_id: tripId, user_id: userId } },
-    update: { role },
-    create: {
-      id: randomUUID(),
-      trip_id: tripId,
-      user_id: userId,
-      role
     }
-  })
-}
+    const data = parsed.data
 
-interface SeedItemSpec {
-  title: string
-  startMin: number
-  endMin: number
-}
-
-async function seedItineraryDay(tripId: string, dayId: string, userId: string, specs: SeedItemSpec[]) {
-  const base = new Date()
-  base.setMinutes(0, 0, 0)
-  for (const spec of specs) {
-    const start = new Date(base.getTime() + spec.startMin * 60000)
-    const end = new Date(base.getTime() + spec.endMin * 60000)
-    await prisma.itinerary_items.create({
+    const created = await prisma.itinerary_items.create({
       data: {
-        id: randomUUID(),
-        trip_id: tripId,
-        day_id: dayId,
-        title: spec.title,
-        type: 'ACTIVITY',
-        start_time: start,
-        end_time: end,
-        created_by: userId,
-        created_at: new Date()
+        id: crypto.randomUUID(),
+        trip_id: day.trip_id,
+        day_id: data.dayId,
+        title: data.title,
+        description: data.description,
+        type: data.type,
+        start_time: data.startTime ? new Date(data.startTime) : null,
+        end_time: data.endTime ? new Date(data.endTime) : null,
+        location_id: data.locationId || null,
+        created_by: session.user.id
       }
     })
-  }
-}
 
-async function main() {
-  console.log('Seeding...')
-  // Clean (optional; adjust if you want to preserve data)
-  // await prisma.itinerary_items.deleteMany()
-  // await prisma.trip_members.deleteMany()
-  // await prisma.days.deleteMany()
-  // await prisma.trips.deleteMany()
-  // await prisma.user.deleteMany()
-
-  const owner = await upsertUser('owner@example.com', 'Owner User')
-  const editor = await upsertUser('editor@example.com', 'Editor User')
-  const viewer = await upsertUser('viewer@example.com', 'Viewer User')
-
-  const { trip, days } = await createTripWithDays(owner.id)
-  await addMembership(trip.id, owner.id, TripMemberRole.OWNER)
-  await addMembership(trip.id, editor.id, TripMemberRole.EDITOR)
-  await addMembership(trip.id, viewer.id, TripMemberRole.VIEWER)
-
-  // Day 1: overlapping items (Breakfast + Overlap + Extended)
-  await seedItineraryDay(trip.id, days[0].id, owner.id, [
-    { title: 'Breakfast', startMin: 8 * 60, endMin: 9 * 60 },
-    { title: 'Museum (overlaps breakfast end)', startMin: 8 * 60 + 30, endMin: 10 * 60 + 30 },
-    { title: 'Short Stop (chains with museum)', startMin: 10 * 60 + 15, endMin: 11 * 60 },
-    { title: 'Lunch (no overlap)', startMin: 12 * 60, endMin: 13 * 60 }
-  ])
-
-  // Day 2: no overlaps
-  await seedItineraryDay(trip.id, days[1].id, editor.id, [
-    { title: 'Morning Walk', startMin: 9 * 60, endMin: 10 * 60 },
-    { title: 'Coffee', startMin: 10 * 60 + 30, endMin: 11 * 60 },
-    { title: 'Temple Visit', startMin: 12 * 60, endMin: 13 * 60 + 30 }
-  ])
-
-  console.log('Seed complete. Trip ID:', trip.id)
-}
-
-main()
-  .catch(err => {
-    console.error(err)
-    process.exit(1)
-  })
-  .finally(async () => {
-    await prisma.$disconnect()
+    const items = await getDayItemsWithOverlaps(data.dayId)
+    const createdWithOverlap = items.find(i => i.id === created.id)
+    return ok(
+      {
+        created: mapItem(created, createdWithOverlap?.overlap),
+        items: items.map(i => mapItem(i, i.overlap))
+      },
+      { status: 201 }
+    )
   })
