@@ -1,9 +1,22 @@
-"use client"
+'use client'
 
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { useSession, signOut } from "next-auth/react"
-import { useState } from "react"
+import { useSession } from "next-auth/react"
+import { redirect } from "next/navigation"
+import { SignOutButton } from "@/components/SignOutButton"
+import { ThemeToggle } from "@/components/ThemeToggle"
+import { useState } from 'react'
+import {
+  Menu,
+  X,
+  LayoutDashboard,
+  Calendar,
+  Map,
+  Hotel,
+  CheckSquare,
+  DollarSign,
+  Activity
+} from 'lucide-react'
 
 export default function DashboardLayout({
   children,
@@ -11,93 +24,103 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const { data: session, status } = useSession()
-  const [isSigningOut, setIsSigningOut] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
-  const handleSignOut = async () => {
-    setIsSigningOut(true)
-    await signOut({ callbackUrl: "/" })
+  if (status === 'loading') {
+    return <div>Loading...</div>
   }
 
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-tea-50 via-stone-50 to-bamboo-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-tea-600 mx-auto mb-4"></div>
-          <p className="text-stone-600">Loading dashboard...</p>
-        </div>
-      </div>
-    )
+  if (!session?.user?.id) {
+    redirect('/sign-in')
   }
 
-  if (!session) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-tea-50 via-stone-50 to-bamboo-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-stone-800 mb-4">Access Denied</h1>
-          <p className="text-stone-600 mb-6">You need to be signed in to access the dashboard.</p>
-          <Link href="/sign-in">
-            <Button className="bg-tea-600 hover:bg-tea-700">
-              Sign In
-            </Button>
-          </Link>
-        </div>
-      </div>
-    )
-  }
+  const navigationLinks = [
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/dashboard/itinerary', label: 'Itinerary', icon: Calendar },
+    { href: '/dashboard/map', label: 'Map', icon: Map },
+    { href: '/dashboard/reservations', label: 'Reservations', icon: Hotel },
+    { href: '/dashboard/checklists', label: 'Checklists', icon: CheckSquare },
+    { href: '/dashboard/expenses', label: 'Expenses', icon: DollarSign },
+    { href: '/dashboard/activities', label: 'Activities', icon: Activity },
+  ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-tea-50 via-stone-50 to-bamboo-50">
+    <div className="min-h-screen organic-background bg-gradient-to-br from-stone-50 via-sakura-50 to-tea-50 dark:from-stone-900 dark:via-tea-900 dark:to-sakura-900">
+
       {/* Navigation */}
-      <nav className="bg-white/80 backdrop-blur-sm border-b border-stone-200 sticky top-0 z-50">
-        <div className="container mx-auto px-4">
+      <nav className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-b border-stone-200 dark:border-gray-700 sticky top-0 z-50">
+        <div className="container mx-auto px-6">
           <div className="flex items-center justify-between h-16">
-            <Link href="/dashboard" className="flex items-center space-x-2">
-              <span className="text-xl font-heading font-bold text-stone-800">
-                Japan Trip Planner
+            <Link href="/dashboard" className="flex items-center space-x-3">
+              <span className="text-xl font-heading font-bold text-stone-800 dark:text-white">
+                🌸 Japan Trip Planner
               </span>
             </Link>
-            
+
+            {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-6">
-              <Link href="/dashboard" className="text-stone-600 hover:text-stone-800 font-medium">
-                Dashboard
-              </Link>
-              <Link href="/dashboard/itinerary" className="text-stone-600 hover:text-stone-800 font-medium">
-                Itinerary
-              </Link>
-              <Link href="/dashboard/map" className="text-stone-600 hover:text-stone-800 font-medium">
-                Map
-              </Link>
-              <Link href="/dashboard/reservations" className="text-stone-600 hover:text-stone-800 font-medium">
-                Reservations
-              </Link>
-              <Link href="/dashboard/checklists" className="text-stone-600 hover:text-stone-800 font-medium">
-                Checklists
-              </Link>
-              <Link href="/dashboard/expenses" className="text-stone-600 hover:text-stone-800 font-medium">
-                Expenses
-              </Link>
-              <Link href="/dashboard/activities" className="text-stone-600 hover:text-stone-800 font-medium">
-                Activities
-              </Link>
+              {navigationLinks.map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="flex items-center space-x-2 text-stone-600 dark:text-stone-300 hover:text-stone-800 dark:hover:text-white font-medium transition-colors px-3 py-2 rounded-md hover:bg-stone-100 dark:hover:bg-gray-700"
+                >
+                  <Icon size={18} />
+                  <span>{label}</span>
+                </Link>
+              ))}
             </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="hidden sm:flex items-center space-x-2 text-sm text-stone-600">
-                <span>Welcome,</span>
-                <span className="font-medium text-stone-800">
-                  {session.user?.name || session.user?.email || 'User'}
-                </span>
+
+            {/* Mobile Menu Button & Actions */}
+            <div className="flex items-center space-x-3">
+              <div className="md:hidden">
+                <button
+                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                  className="text-stone-600 dark:text-stone-300 p-2 rounded-md hover:bg-stone-100 dark:hover:bg-gray-700"
+                >
+                  {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                </button>
               </div>
-              <Button variant="ghost" size="sm" onClick={handleSignOut} disabled={isSigningOut}>
-                {isSigningOut ? 'Signing out...' : 'Sign Out'}
-              </Button>
+              <div className="hidden md:flex items-center space-x-3">
+                <ThemeToggle />
+                <SignOutButton />
+              </div>
             </div>
           </div>
+
+          {/* Mobile Navigation Menu */}
+          {isMobileMenuOpen && (
+            <div className="md:hidden border-t border-stone-200 dark:border-gray-700 py-4">
+              <div className="flex flex-col space-y-2">
+                {navigationLinks.map(({ href, label, icon: Icon }) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center space-x-3 text-stone-600 dark:text-stone-300 hover:text-stone-800 dark:hover:text-white font-medium transition-colors px-3 py-2 rounded-md hover:bg-stone-100 dark:hover:bg-gray-700"
+                  >
+                    <Icon size={18} />
+                    <span>{label}</span>
+                  </Link>
+                ))}
+                <div className="flex items-center justify-between pt-4 border-t border-stone-200 dark:border-gray-700">
+                  <ThemeToggle />
+                  <SignOutButton />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </nav>
-      
+
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-6 py-8">
+        {/* Welcome Header */}
+        <div className="mb-8">
+          <p className="text-stone-700 dark:text-stone-200 text-base font-medium">
+            Welcome back, {session.user.name || session.user.email?.split('@')[0] || 'there'}
+          </p>
+        </div>
         {children}
       </main>
     </div>

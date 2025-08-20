@@ -1,26 +1,29 @@
-import type { Metadata } from "next";
+// app/layout.tsx
 import "./globals.css";
-import { SessionProvider } from "next-auth/react";
-import Footer from "@/components/Footer";
+import type { ReactNode } from "react";
+import type { Metadata } from "next";
+import { AuthProvider } from "@/components/providers/SessionProvider";
+import { ThemeProvider } from "./providers/ThemeProvider";
+import { auth } from "@/lib/auth";
+import { MainLayout } from "@/components/layout/MainLayout";
 
 export const metadata: Metadata = {
-  title: "Japan Trip Planner",
-  description: "Modern Japan trip planning application with comprehensive itinerary management",
+    title: { default: "Japan Trip Planner", template: "%s | Japan Trip Planner" },
+    description: "Plan your perfect trip to Japan"
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="en">
-      <body className="antialiased bg-gradient-to-br from-tea-50 via-stone-50 to-bamboo-50 font-sans">
-        <SessionProvider>
-          {children}
-          <Footer />
-        </SessionProvider>
-      </body>
-    </html>
-  );
+export default async function RootLayout({ children }: { children: ReactNode }) {
+    return (
+        <html lang="en">
+            <body>
+                <AuthProvider>
+                    <ThemeProvider>
+                        <MainLayout>
+                            {children}
+                        </MainLayout>
+                    </ThemeProvider>
+                </AuthProvider>
+            </body>
+        </html>
+    );
 }

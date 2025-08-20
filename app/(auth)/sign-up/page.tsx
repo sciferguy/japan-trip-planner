@@ -1,163 +1,132 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
+import { useState } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function SignUpPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [name, setName] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
-  const handleEmailSignUp = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError("")
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      name: formData.get("name") as string,
+      email: formData.get("email") as string,
+      password: formData.get("password") as string,
+    };
 
     try {
-      const supabase = createClient()
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name,
-          },
-        },
-      })
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
 
-      if (error) {
-        setError(error.message)
-      } else if (data.user) {
-        // Automatically sign in after successful registration
-        const result = await signIn("credentials", {
-          email,
-          password,
-          redirect: false,
-        })
-
-        if (result?.error) {
-          setError("Account created but sign in failed. Please try signing in manually.")
-        } else {
-          router.push("/dashboard")
-        }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Registration failed");
       }
-    } catch (_error: unknown) {
-      // Log the error for debugging purposes
-      console.error(_error)
-      setError("An error occurred during sign up")
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
-  const handleGoogleSignUp = () => {
-    signIn("google", { callbackUrl: "/dashboard" })
-  }
+      const signInResult = await signIn("credentials", {
+        email: data.email,
+        password: data.password,
+        redirect: false,
+      });
+
+      if (signInResult?.error) {
+        throw new Error("Account created but sign-in failed. Please try signing in manually.");
+      }
+
+      router.push("/dashboard");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Registration failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <Card className="shadow-zen">
-      <CardHeader className="text-center">
-        <CardTitle>Create Account</CardTitle>
-        <CardDescription>
-          Start planning your Japan adventure
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {error && (
-          <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-            {error}
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-rose-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-[url('/cherry-blossoms.svg')] opacity-5"></div>
+
+      <div className="relative w-full max-w-md">
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-pink-100 dark:border-gray-700 p-8">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              Create Account
+            </h1>
+            <p className="text-gray-600 dark:text-gray-300">
+              Join Japan Trip Planner today
+            </p>
           </div>
-        )}
-        
-        <div className="grid gap-4">
-          <Button 
-            onClick={handleGoogleSignUp}
-            className="w-full bg-tea-600 hover:bg-tea-700"
-            disabled={isLoading}
-          >
-            Continue with Google
-          </Button>
-          
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+              <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or create with email</span>
-            </div>
-          </div>
-          
-          <form onSubmit={handleEmailSignUp} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <input
+                name="name"
                 type="text"
-                placeholder="Enter your full name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                placeholder="Full Name"
                 required
+                className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
+            <div>
+              <input
+                name="email"
                 type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
                 required
+                className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
+            <div>
+              <input
+                name="password"
                 type="password"
-                placeholder="Enter your password (min. 6 characters)"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password (min 6 chars)"
                 required
                 minLength={6}
+                className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               />
             </div>
-            <Button 
+            <button
               type="submit"
-              variant="outline" 
-              className="w-full"
               disabled={isLoading}
+              className="w-full bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
             >
-              {isLoading ? "Creating account..." : "Create Account"}
-            </Button>
+              {isLoading ? "Creating Account..." : "Create Account"}
+            </button>
           </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-gray-600 dark:text-gray-300">
+              Already have an account?{" "}
+              <Link href="/sign-in" className="text-pink-500 hover:text-pink-600 dark:text-pink-400 dark:hover:text-pink-300 font-medium hover:underline">
+                Sign in
+              </Link>
+            </p>
+          </div>
         </div>
-        
-        <div className="text-center">
-          <p className="text-sm text-stone-600">
-            Already have an account?{" "}
-            <Link href="/sign-in" className="text-tea-600 hover:text-tea-700 font-medium">
-              Sign in
-            </Link>
-          </p>
+
+        <div className="mt-6 text-center">
+          <Link href="/" className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-sm hover:underline">
+            ← Back to home
+          </Link>
         </div>
-        
-        <div className="text-center pt-4 border-t">
-          <p className="text-xs text-stone-500">
-            By creating an account, you agree to our Terms of Service
-          </p>
-        </div>
-      </CardContent>
-    </Card>
-  )
+      </div>
+    </div>
+  );
 }

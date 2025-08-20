@@ -1,3 +1,7 @@
-import { handlers } from "@/lib/auth"
+import { handlers } from "@/lib/auth";
 
-export const { GET, POST } = handlers
+// Force Node.js runtime
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export const { GET, POST } = handlers;
