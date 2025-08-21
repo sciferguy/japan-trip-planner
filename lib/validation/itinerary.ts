@@ -17,27 +17,28 @@ const baseFields = {
 
 export const createItineraryItemSchema = z.object({
   ...baseFields,
-  dayId: z.string().min(1) // required for creation (will usually be injected from route param)
-}).superRefine((data, ctx) => {
-  if (data.startTime && data.endTime) {
-    if (new Date(data.startTime) >= new Date(data.endTime)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['endTime'],
-        message: 'endTime must be after startTime'
-      })
-    }
-  }
+  dayId: z.string().min(1).optional()
 })
+    .refine(d => !!d.dayId, { path: ['dayId'], message: 'dayId required' })
+    .superRefine((data, ctx) => {
+      if (data.startTime && data.endTime) {
+        if (new Date(data.startTime) >= new Date(data.endTime)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['endTime'],
+            message: 'endTime must be after startTime'
+          })
+        }
+      }
+    })
 
 export const updateItineraryItemSchema = z.object({
-  // All optional; at least one key must be present (enforced manually)
   title: baseFields.title.optional(),
   description: baseFields.description,
   type: baseFields.type.optional(),
-  startTime: baseFields.startTime,
-  endTime: baseFields.endTime,
-  locationId: baseFields.locationId,
+  startTime: baseFields.startTime.or(z.null()).optional(),
+  endTime: baseFields.endTime.or(z.null()).optional(),
+  locationId: baseFields.locationId.or(z.null()),
   dayId: baseFields.dayId
 }).superRefine((data, ctx) => {
   if (data.startTime && data.endTime) {

@@ -15,7 +15,7 @@ export class ApiError extends Error {
 const ROLE_ORDER: TripMemberRole[] = [
   TripMemberRole.VIEWER,
   TripMemberRole.EDITOR,
-  TripMemberRole.OWNER
+  TripMemberRole.ADMIN  // Changed from OWNER to ADMIN
 ]
 
 export function hasSufficientRole(actual: TripMemberRole, needed: TripMemberRole) {
@@ -24,7 +24,12 @@ export function hasSufficientRole(actual: TripMemberRole, needed: TripMemberRole
 
 export async function getMembership(tripId: string, userId: string) {
   return prisma.trip_members.findUnique({
-    where: { trip_id_user_id: { trip_id: tripId, user_id: userId } }
+    where: {
+      trip_id_user_id: {
+        trip_id: tripId,
+        user_id: userId
+      }
+    }
   })
 }
 

@@ -1,8 +1,8 @@
-// types/itinerary.ts
 export interface ItineraryItem {
   id: string
   tripId: string
   dayId: string | null
+  day: number // legacy field for backward compatibility
   title: string
   description: string | null
   startTime: string | null
@@ -10,7 +10,7 @@ export interface ItineraryItem {
   locationId: string | null
   type: 'ACTIVITY' | 'TRANSPORT' | 'MEAL' | 'ACCOMMODATION' | 'MEETING' | 'FREE_TIME'
   createdBy: string
-  createdAt: string | null
+  createdAt: string
   overlap: boolean
 }
 
@@ -33,3 +33,16 @@ export interface PatchItineraryItemData {
   type?: ItineraryItem['type']
   dayId?: string
 }
+
+export interface UpdateItineraryItemData {
+  title: string
+  description?: string | null
+  type: ItineraryItem['type']
+  startTime?: string | null
+  endTime?: string | null
+  locationId?: string | null
+  dayId?: string // For day changes
+}
+
+// Type alias for prisma enum
+export type ItineraryItemType = 'ACTIVITY' | 'TRANSPORT' | 'MEAL' | 'ACCOMMODATION' | 'MEETING' | 'FREE_TIME'

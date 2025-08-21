@@ -1,4 +1,3 @@
-// app/api/days/[dayId]/itinerary-items/route.ts
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { run, ok, fail } from '@/lib/api/response'
@@ -11,11 +10,25 @@ function toIso(d: Date | null | undefined) {
   return d ? d.toISOString() : null
 }
 
-function mapItem(db: any, overlap?: boolean) {
+interface DatabaseItem {
+  id: string
+  trip_id: string
+  day: number
+  title: string
+  description: string | null
+  start_time: Date | null
+  end_time: Date | null
+  location_id: string | null
+  type: string
+  created_by: string
+  created_at: Date
+}
+
+function mapItem(db: DatabaseItem, overlap?: boolean) {
   return {
     id: db.id,
     tripId: db.trip_id,
-    dayId: db.day_id,
+    dayId: db.day.toString(), // Convert day number to string for dayId
     title: db.title,
     description: db.description ?? null,
     startTime: toIso(db.start_time),
@@ -28,15 +41,27 @@ function mapItem(db: any, overlap?: boolean) {
   }
 }
 
-export const GET = (_req: Request, { params }: { params: { dayId: string } }) =>
+export const GET = (req: Request, { params }: { params: { dayId: string } }) =>
   run(async () => {
     const session = await auth()
     if (!session?.user?.id) return fail(401, 'UNAUTH', 'Unauthorized')
-    const day = await prisma.days.findUnique({ where: { id: params.dayId } })
-    if (!day) return fail(404, 'NOT_FOUND', 'Day not found')
-    await requireMembership(day.trip_id, session.user.id)
 
-    const items = await getDayItemsWithOverlaps(params.dayId)
+    // Extract tripId from URL searchParams
+    const url = new URL(req.url)
+    const tripId = url.searchParams.get('tripId')
+    if (!tripId) return fail(400, 'BAD_REQUEST', 'tripId parameter required')
+
+    // Verify trip exists and user has access
+    const trip = await prisma.trips.findUnique({ where: { id: tripId } })
+    if (!trip) return fail(404, 'NOT_FOUND', 'Trip not found')
+
+    await requireMembership(tripId, session.user.id)
+
+    // Convert dayId string to number for database query
+    const dayNumber = parseInt(params.dayId)
+    if (isNaN(dayNumber)) return fail(400, 'BAD_REQUEST', 'Invalid day number')
+
+    const items = await getDayItemsWithOverlaps(dayNumber, tripId)
     return ok(items.map(i => mapItem(i, i.overlap)))
   })
 
@@ -44,14 +69,32 @@ export const POST = (req: Request, { params }: { params: { dayId: string } }) =>
   run(async () => {
     const session = await auth()
     if (!session?.user?.id) return fail(401, 'UNAUTH', 'Unauthorized')
-    const day = await prisma.days.findUnique({ where: { id: params.dayId } })
-    if (!day) return fail(404, 'NOT_FOUND', 'Day not found')
-    await requireTripRole(day.trip_id, session.user.id, TripMemberRole.EDITOR)
+
+    // Extract tripId from URL searchParams
+    const url = new URL(req.url)
+    const tripId = url.searchParams.get('tripId')
+    if (!tripId) return fail(400, 'BAD_REQUEST', 'tripId parameter required')
+
+    // Verify trip exists and user has access
+    const trip = await prisma.trips.findUnique({
+      where: { id: tripId },
+      select: { id: true, start_date: true }
+    })
+    if (!trip) return fail(404, 'NOT_FOUND', 'Trip not found')
+
+    await requireTripRole(tripId, session.user.id, TripMemberRole.EDITOR)
+
+    // Convert dayId string to number
+    const dayNumber = parseInt(params.dayId)
+    if (isNaN(dayNumber)) return fail(400, 'BAD_REQUEST', 'Invalid day number')
 
     const body = await req.json().catch(() => null)
     if (!body) return fail(400, 'BAD_JSON', 'Invalid JSON')
 
-    const parsed = createItineraryItemSchema.safeParse({ ...body, dayId: params.dayId })
+    const parsed = createItineraryItemSchema.safeParse({
+      ...body,
+      dayId: params.dayId
+    })
     if (!parsed.success) {
       return fail(400, 'VALIDATION', 'Validation failed', {
         fieldErrors: parsed.error.flatten().fieldErrors
@@ -61,11 +104,10 @@ export const POST = (req: Request, { params }: { params: { dayId: string } }) =>
 
     const created = await prisma.itinerary_items.create({
       data: {
-        id: crypto.randomUUID(),
-        trip_id: day.trip_id,
-        day_id: data.dayId,
+        trip_id: tripId,
+        day: dayNumber, // Use day number directly
         title: data.title,
-        description: data.description,
+        description: data.description || null,
         type: data.type,
         start_time: data.startTime ? new Date(data.startTime) : null,
         end_time: data.endTime ? new Date(data.endTime) : null,
@@ -74,8 +116,9 @@ export const POST = (req: Request, { params }: { params: { dayId: string } }) =>
       }
     })
 
-    const items = await getDayItemsWithOverlaps(data.dayId)
+    const items = await getDayItemsWithOverlaps(dayNumber, tripId)
     const createdWithOverlap = items.find(i => i.id === created.id)
+
     return ok(
       {
         created: mapItem(created, createdWithOverlap?.overlap),

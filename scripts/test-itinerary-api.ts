@@ -8,19 +8,23 @@ const AUTH_COOKIE = process.env.AUTH_COOKIE // e.g. "next-auth.session-token=...
 async function main() {
   console.log('🧪 Testing new itinerary item endpoints...\n')
 
-  const day = await prisma.days.findFirst({
-    orderBy: { date: 'asc' }
+  // Get the first trip to test with
+  const trip = await prisma.trips.findFirst({
+    orderBy: { created_at: 'asc' }
   })
-  if (!day) {
-    console.error('No day found. Seed days first.')
+  if (!trip) {
+    console.error('No trip found. Create a trip first.')
     return
   }
-  console.log(`Using day: ${day.id} (trip ${day.trip_id})`)
+
+  // Use day 1 for testing
+  const dayNumber = 1
+  console.log(`Using trip: ${trip.id}, day: ${dayNumber}`)
 
   // CREATE
-  const start = new Date(day.date)
+  const start = new Date(trip.start_date)
   start.setHours(9, 0, 0, 0)
-  const end = new Date(day.date)
+  const end = new Date(trip.start_date)
   end.setHours(10, 0, 0, 0)
 
   const createPayload = {
@@ -31,7 +35,7 @@ async function main() {
     endTime: end.toISOString()
   }
 
-  const createRes = await fetch(`${BASE_URL}/api/days/${day.id}/itinerary-items`, {
+  const createRes = await fetch(`${BASE_URL}/api/days/${dayNumber}/itinerary-items?tripId=${trip.id}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -43,6 +47,14 @@ async function main() {
   console.log('Create status', createRes.status, createJson)
   if (!createJson.data?.created?.id) return
   const createdId = createJson.data.created.id
+
+  // GET items for the day
+  const getRes = await fetch(`${BASE_URL}/api/days/${dayNumber}/itinerary-items?tripId=${trip.id}`, {
+    headers: {
+      ...(AUTH_COOKIE ? { Cookie: AUTH_COOKIE } : {})
+    }
+  })
+  console.log('Get status', getRes.status, await getRes.json())
 
   // PATCH (overlap by shifting within same hour)
   const patchRes = await fetch(`${BASE_URL}/api/itinerary-items/${createdId}`, {

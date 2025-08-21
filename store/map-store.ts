@@ -1,6 +1,24 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import type { MapPin, MapViewport } from '@/types'
+import type { PinType } from '@prisma/client'
+
+export interface MapViewport {
+  latitude: number
+  longitude: number
+  zoom: number
+}
+
+export interface MapPin {
+  id: string
+  name: string
+  address: string
+  lat: number
+  lng: number
+  google_place_id?: string
+  custom_notes?: string
+  pin_type: PinType
+  trip_id: string
+}
 
 interface MapState {
   viewport: MapViewport
@@ -31,7 +49,7 @@ const defaultViewport: MapViewport = {
 
 export const useMapStore = create<MapState & MapActions>()(
   devtools(
-    (set, get) => ({
+    (set, _get) => ({
       // State
       viewport: defaultViewport,
       pins: [],

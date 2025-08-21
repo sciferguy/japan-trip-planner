@@ -3,7 +3,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ItineraryItem } from '@/types/itinerary'
 import { ItineraryItemCard } from './ItineraryItemCard'
 import { AddItineraryItemForm } from './AddItineraryItemForm'
 import { useItinerary } from '@/hooks/useItinerary'
@@ -27,26 +26,28 @@ export default function ItineraryDayView({
   trip,
   dayNumber,
   date,
-  userId
+  _userId
 }: ItineraryDayViewProps) {
   const [showAddForm, setShowAddForm] = useState(false)
   const { items, loading, error, createItem, refetch } = useItinerary(trip.id, dayNumber)
 
   const handleCreateItem = async (data: any) => {
     const result = await createItem(data)
+    // Convert the response to match expected format
     if (result.success) {
       setShowAddForm(false)
       await refetch()
+      return { ok: true, data: result.data }
     }
-    return result
+    return { ok: false, error: result.error }
   }
 
   // Sort items by time, putting untimed items at the end
   const sortedItems = [...items].sort((a, b) => {
-    if (!a.start_time && !b.start_time) return 0
-    if (!a.start_time) return 1
-    if (!b.start_time) return -1
-    return new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+    if (!a.startTime && !b.startTime) return 0
+    if (!a.startTime) return 1
+    if (!b.startTime) return -1
+    return new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
   })
 
   // Calculate previous and next day dates
@@ -152,11 +153,9 @@ export default function ItineraryDayView({
       {showAddForm && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
           <AddItineraryItemForm
-            tripId={trip.id}
-            day={dayNumber}
-            userId={userId}
-            onSubmit={handleCreateItem}
-            onCancel={() => setShowAddForm(false)}
+              dayId={dayNumber.toString()}
+              onSubmit={handleCreateItem}
+              onCancel={() => setShowAddForm(false)}
           />
         </div>
       )}

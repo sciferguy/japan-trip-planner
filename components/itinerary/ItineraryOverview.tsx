@@ -22,7 +22,7 @@ interface ItineraryOverviewProps {
   userId: string
 }
 
-export default function ItineraryOverview({ trip, userId }: ItineraryOverviewProps) {
+export default function ItineraryOverview({ trip }: ItineraryOverviewProps) {
   const [showAddForm, setShowAddForm] = useState(false)
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
 
@@ -50,12 +50,14 @@ export default function ItineraryOverview({ trip, userId }: ItineraryOverviewPro
 
   const handleCreateItem = async (data: any) => {
     const result = await createItem(data)
+    // Convert the response to match expected format
     if (result.success) {
       setShowAddForm(false)
       setSelectedDay(null)
       await refetch()
+      return { ok: true, data: result.data }
     }
-    return result
+    return { ok: false, error: result.error }
   }
 
   return (
@@ -70,7 +72,7 @@ export default function ItineraryOverview({ trip, userId }: ItineraryOverviewPro
             + Add Item
           </button>
           <Link
-              href="/itinerary/today"
+              href="/dashboard/itinerary/today"
               className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors border border-green-600"
           >
             View Today
@@ -117,9 +119,7 @@ export default function ItineraryOverview({ trip, userId }: ItineraryOverviewPro
 
               {selectedDay && (
                 <AddItineraryItemForm
-                  tripId={trip.id}
-                  day={selectedDay}
-                  userId={userId}
+                  dayId={selectedDay.toString()}
                   onSubmit={handleCreateItem}
                   onCancel={() => {
                     setShowAddForm(false)
@@ -148,7 +148,7 @@ export default function ItineraryOverview({ trip, userId }: ItineraryOverviewPro
                 </div>
                 <div className="flex gap-2">
                   <Link
-                    href={`/itinerary/${day.date.toISOString().split('T')[0]}`}
+                    href={`/dashboard/itinerary/${day.date.toISOString().split('T')[0]}`}
                     className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                   >
                     View Day →
