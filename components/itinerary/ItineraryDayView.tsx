@@ -1,18 +1,19 @@
-// components/itinerary/ItineraryDayView.tsx
 'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
 import { ItineraryItemCard } from './ItineraryItemCard'
-import { AddItineraryItemForm } from './AddItineraryItemForm'
+import { AddActivityForm } from './AddActivityForm'
+import { EditActivityForm } from './EditActivityForm'
 import { useItinerary } from '@/hooks/useItinerary'
 import { formatDate } from '@/lib/utils'
+import {CreateItineraryItemData, ItineraryItem, UpdateItineraryItemData} from '@/types/itinerary'
 
 interface Trip {
   id: string
   title: string
-  start_date: string
-  end_date: string
+  start_date: string | Date
+  end_date: string | Date
 }
 
 interface ItineraryDayViewProps {
@@ -26,20 +27,58 @@ export default function ItineraryDayView({
   trip,
   dayNumber,
   date,
-  _userId
+  userId
 }: ItineraryDayViewProps) {
   const [showAddForm, setShowAddForm] = useState(false)
-  const { items, loading, error, createItem, refetch } = useItinerary(trip.id, dayNumber)
+  const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null)
+  const { items, loading, error, createItem, patchItem, deleteItem, refetch } = useItinerary(trip.id, dayNumber)
 
-  const handleCreateItem = async (data: any) => {
+  const handleCreateItem = async (data: CreateItineraryItemData) => {
     const result = await createItem(data)
-    // Convert the response to match expected format
     if (result.success) {
       setShowAddForm(false)
       await refetch()
-      return { ok: true, data: result.data }
+      return { success: true, data: result.data }
     }
-    return { ok: false, error: result.error }
+    return { success: false, error: result.error }
+  }
+
+  const handleEditItem = async (data: UpdateItineraryItemData) => {
+    if (!editingItem) return { ok: false, error: 'No item selected for editing' }
+
+    const result = await patchItem(editingItem.id, data)
+
+    if (result.success) {
+      setEditingItem(null)
+      await refetch()
+      return {
+        ok: true,
+        data: result.data?.updated // Extract just the updated item
+      }
+    } else {
+      return {
+        ok: false,
+        error: result.error || 'Failed to update item'
+      }
+    }
+  }
+
+  const handleDeleteItem = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this item?')) return
+
+    const result = await deleteItem(id)
+    if (result.success) {
+      await refetch()
+    }
+  }
+
+  const handleStartEdit = (item: ItineraryItem) => {
+    setEditingItem(item)
+    setShowAddForm(false)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingItem(null)
   }
 
   // Sort items by time, putting untimed items at the end
@@ -68,11 +107,8 @@ export default function ItineraryDayView({
       <div className="space-y-6">
         <div className="h-8 bg-gray-200 rounded animate-pulse w-64"></div>
         <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="h-6 bg-gray-200 rounded animate-pulse mb-2 w-48"></div>
-              <div className="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
-            </div>
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-24 bg-gray-200 rounded animate-pulse"></div>
           ))}
         </div>
       </div>
@@ -85,9 +121,9 @@ export default function ItineraryDayView({
         <p className="text-red-800">Error loading day: {error}</p>
         <button
           onClick={() => refetch()}
-          className="mt-2 text-blue-600 hover:text-blue-800 underline"
+          className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
         >
-          Try again
+          Retry
         </button>
       </div>
     )
@@ -98,25 +134,17 @@ export default function ItineraryDayView({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <Link
-            href="/dashboard/itinerary"
-            className="text-blue-600 hover:text-blue-800 text-sm mb-2 inline-block"
-          >
-            ← Back to Overview
-          </Link>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Day {dayNumber}
+          <h1 className="text-2xl font-bold text-gray-900">
+            Day {dayNumber} - {formatDate(date.toISOString())}
           </h1>
-          <p className="text-gray-600">
-            {formatDate(date.toISOString())}
-          </p>
+          <p className="text-gray-600 mt-1">{trip.title}</p>
         </div>
 
         <button
           onClick={() => setShowAddForm(!showAddForm)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
-          {showAddForm ? 'Cancel' : '+ Add Item'}
+          {showAddForm ? 'Cancel' : 'Add Activity'}
         </button>
       </div>
 
@@ -124,25 +152,25 @@ export default function ItineraryDayView({
       <div className="flex justify-between items-center py-4 border-t border-b border-gray-200">
         {hasPrevDay ? (
           <Link
-            href={`/dashboard/itinerary/${prevDate.toISOString().split('T')[0]}`}
+            href={`/dashboard/itinerary/${trip.id}?day=${dayNumber - 1}`}
             className="flex items-center text-blue-600 hover:text-blue-800"
           >
-            ← Day {dayNumber - 1}
+            ← Previous Day
           </Link>
         ) : (
           <div></div>
         )}
 
         <span className="text-sm text-gray-500">
-          {items.length} items
+          {dayNumber} of {Math.ceil((tripEnd.getTime() - tripStart.getTime()) / (1000 * 60 * 60 * 24)) + 1} days
         </span>
 
         {hasNextDay ? (
           <Link
-            href={`/dashboard/itinerary/${nextDate.toISOString().split('T')[0]}`}
+            href={`/dashboard/itinerary/${trip.id}?day=${dayNumber + 1}`}
             className="flex items-center text-blue-600 hover:text-blue-800"
           >
-            Day {dayNumber + 1} →
+            Next Day →
           </Link>
         ) : (
           <div></div>
@@ -152,10 +180,28 @@ export default function ItineraryDayView({
       {/* Add Form */}
       {showAddForm && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <AddItineraryItemForm
-              dayId={dayNumber.toString()}
-              onSubmit={handleCreateItem}
-              onCancel={() => setShowAddForm(false)}
+          <h3 className="text-lg font-semibold mb-4">Add New Activity</h3>
+          <AddActivityForm
+            tripId={trip.id}
+            dayId={dayNumber.toString()}
+            userId={userId}
+            tripStartDate={trip.start_date instanceof Date ? trip.start_date : new Date(trip.start_date)}
+            onSubmit={handleCreateItem}
+            onCancel={() => setShowAddForm(false)}
+          />
+        </div>
+      )}
+
+      {/* Edit Form */}
+      {editingItem && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
+          <h3 className="text-lg font-semibold mb-4">Edit Activity</h3>
+          <EditActivityForm
+            item={editingItem}
+            _tripId={trip.id}
+            tripStartDate={trip.start_date instanceof Date ? trip.start_date : new Date(trip.start_date)}
+            onSubmit={handleEditItem}
+            onCancel={handleCancelEdit}
           />
         </div>
       )}
@@ -164,16 +210,21 @@ export default function ItineraryDayView({
       <div className="space-y-4">
         {sortedItems.length > 0 ? (
           sortedItems.map((item) => (
-            <ItineraryItemCard key={item.id} item={item} />
+            <ItineraryItemCard
+              key={item.id}
+              item={item}
+              onEdit={handleStartEdit}
+              onDelete={handleDeleteItem}
+            />
           ))
         ) : (
-          <div className="text-center py-12 bg-gray-50 rounded-lg">
-            <p className="text-gray-500 mb-4">No items planned for this day</p>
+          <div className="text-center py-12 text-gray-500">
+            <p>No activities planned for this day</p>
             <button
               onClick={() => setShowAddForm(true)}
-              className="text-blue-600 hover:text-blue-800 font-medium"
+              className="mt-2 text-blue-600 hover:text-blue-800"
             >
-              Add your first item
+              Add your first activity
             </button>
           </div>
         )}

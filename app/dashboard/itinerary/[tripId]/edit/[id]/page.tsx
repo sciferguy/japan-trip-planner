@@ -19,7 +19,10 @@ async function getActivityAndTrip(itemId: string, tripId: string) {
   const [item, trip] = await Promise.all([
     prisma.itinerary_items.findUnique({
       where: { id: itemId },
-      include: { locations: true }
+      include: {
+        place: true,
+        day: true
+      }
     }),
     prisma.trips.findUnique({
       where: { id: tripId },
@@ -27,22 +30,27 @@ async function getActivityAndTrip(itemId: string, tripId: string) {
     })
   ])
 
-  if (!item || !trip) return null
+  if (!item || !trip || item.day.trip_id !== tripId) return null
+
+  // Calculate day number from trip start date and item day date
+  const tripStart = new Date(trip.start_date)
+  const itemDate = new Date(item.day.date)
+  const dayNumber = Math.ceil((itemDate.getTime() - tripStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
 
   const transformedItem: ItineraryItem = {
     id: item.id,
-    tripId: item.trip_id,
-    dayId: item.day.toString(),
-    day: item.day,
+    tripId: tripId,
+    dayId: item.day_id,
+    day: dayNumber,
     title: item.title,
-    description: item.description,
+    description: item.note,
     startTime: item.start_time?.toISOString() || null,
     endTime: item.end_time?.toISOString() || null,
-    locationId: item.location_id,
+    locationId: item.place_id,
     type: item.type as ItineraryItem['type'],
-    createdBy: item.created_by,
+    createdBy: item.created_by_user_id,
     createdAt: item.created_at.toISOString(),
-    overlap: false // You may need to compute this
+    overlap: false
   }
 
   return {
@@ -72,23 +80,26 @@ export default async function EditActivityPage({ params }: PageProps) {
     'use server'
 
     try {
-      // Determine which day to update
-      const targetDay = updateData.dayId ? parseInt(updateData.dayId) : item.day
+      const targetDayId = updateData.dayId || item.dayId
 
-      const response = await fetch(`${process.env.NEXTAUTH_URL}/api/days/${targetDay}/itinerary-items/${item.id}?tripId=${params.tripId}`, {
+      const response = await fetch(`${process.env.NEXTAUTH_URL}/api/itinerary-items/${item.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData)
+        body: JSON.stringify({
+          ...updateData,
+          dayId: targetDayId
+        })
       })
 
       if (!response.ok) {
         const error = await response.text()
-        return { success: false, error }
+        return { ok: false, error }
       }
 
-      return { success: true }
+      const result = await response.json()
+      return { ok: true, data: result }
     } catch {
-      return { success: false, error: 'Failed to update activity' }
+      return { ok: false, error: 'Failed to update activity' }
     }
   }
 
@@ -115,8 +126,8 @@ export default async function EditActivityPage({ params }: PageProps) {
           <Suspense fallback={<div>Loading...</div>}>
             <EditActivityForm
               item={item}
-              tripId={params.tripId}
-              tripStartDate={trip.start_date}
+              _tripId={params.tripId}
+              tripStartDate={trip.start_date instanceof Date ? trip.start_date : new Date(trip.start_date)}
               onSubmit={handleSubmit}
               onCancel={() => redirect(`/dashboard/itinerary/${params.tripId}`)}
             />

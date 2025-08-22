@@ -12,32 +12,32 @@ function toIso(d: Date | null | undefined) {
 
 interface DatabaseItem {
   id: string
-  trip_id: string
-  day: number
+  day_id: string
   title: string
-  description: string | null
+  note: string | null
   start_time: Date | null
   end_time: Date | null
-  location_id: string | null
+  place_id: string | null
   type: string
-  created_by: string
+  created_by_user_id: string
   created_at: Date
+  overlap: boolean
 }
 
-function mapItem(db: DatabaseItem, overlap?: boolean) {
+function mapItem(db: DatabaseItem) {
   return {
     id: db.id,
-    tripId: db.trip_id,
-    dayId: db.day.toString(), // Convert day number to string for dayId
+    tripId: '', // Will need to be populated from day relation
+    dayId: db.day_id,
     title: db.title,
-    description: db.description ?? null,
+    description: db.note ?? null,
     startTime: toIso(db.start_time),
     endTime: toIso(db.end_time),
-    locationId: db.location_id ?? null,
+    locationId: db.place_id ?? null,
     type: db.type,
-    createdBy: db.created_by,
+    createdBy: db.created_by_user_id,
     createdAt: toIso(db.created_at),
-    overlap: overlap ?? false
+    overlap: db.overlap
   }
 }
 
@@ -46,23 +46,17 @@ export const GET = (req: Request, { params }: { params: { dayId: string } }) =>
     const session = await auth()
     if (!session?.user?.id) return fail(401, 'UNAUTH', 'Unauthorized')
 
-    // Extract tripId from URL searchParams
-    const url = new URL(req.url)
-    const tripId = url.searchParams.get('tripId')
-    if (!tripId) return fail(400, 'BAD_REQUEST', 'tripId parameter required')
+    // Verify day exists and get trip info
+    const day = await prisma.days.findUnique({
+      where: { id: params.dayId },
+      include: { trip: true }
+    })
+    if (!day) return fail(404, 'NOT_FOUND', 'Day not found')
 
-    // Verify trip exists and user has access
-    const trip = await prisma.trips.findUnique({ where: { id: tripId } })
-    if (!trip) return fail(404, 'NOT_FOUND', 'Trip not found')
+    await requireMembership(day.trip_id, session.user.id)
 
-    await requireMembership(tripId, session.user.id)
-
-    // Convert dayId string to number for database query
-    const dayNumber = parseInt(params.dayId)
-    if (isNaN(dayNumber)) return fail(400, 'BAD_REQUEST', 'Invalid day number')
-
-    const items = await getDayItemsWithOverlaps(dayNumber, tripId)
-    return ok(items.map(i => mapItem(i, i.overlap)))
+    const items = await getDayItemsWithOverlaps(params.dayId)
+    return ok(items.map(i => mapItem(i)))
   })
 
 export const POST = (req: Request, { params }: { params: { dayId: string } }) =>
@@ -70,23 +64,14 @@ export const POST = (req: Request, { params }: { params: { dayId: string } }) =>
     const session = await auth()
     if (!session?.user?.id) return fail(401, 'UNAUTH', 'Unauthorized')
 
-    // Extract tripId from URL searchParams
-    const url = new URL(req.url)
-    const tripId = url.searchParams.get('tripId')
-    if (!tripId) return fail(400, 'BAD_REQUEST', 'tripId parameter required')
-
-    // Verify trip exists and user has access
-    const trip = await prisma.trips.findUnique({
-      where: { id: tripId },
-      select: { id: true, start_date: true }
+    // Verify day exists and get trip info
+    const day = await prisma.days.findUnique({
+      where: { id: params.dayId },
+      include: { trip: true }
     })
-    if (!trip) return fail(404, 'NOT_FOUND', 'Trip not found')
+    if (!day) return fail(404, 'NOT_FOUND', 'Day not found')
 
-    await requireTripRole(tripId, session.user.id, TripMemberRole.EDITOR)
-
-    // Convert dayId string to number
-    const dayNumber = parseInt(params.dayId)
-    if (isNaN(dayNumber)) return fail(400, 'BAD_REQUEST', 'Invalid day number')
+    await requireTripRole(day.trip_id, session.user.id, TripMemberRole.EDITOR)
 
     const body = await req.json().catch(() => null)
     if (!body) return fail(400, 'BAD_JSON', 'Invalid JSON')
@@ -102,27 +87,39 @@ export const POST = (req: Request, { params }: { params: { dayId: string } }) =>
     }
     const data = parsed.data
 
+    // Validate place belongs to trip if provided
+    if (data.locationId) {
+      const place = await prisma.places.findFirst({
+        where: {
+          id: data.locationId,
+          trip_id: day.trip_id
+        }
+      })
+
+      if (!place) {
+        return fail(400, 'INVALID_LOCATION', 'Place does not belong to this trip')
+      }
+    }
+
     const created = await prisma.itinerary_items.create({
       data: {
-        trip_id: tripId,
-        day: dayNumber, // Use day number directly
+        day_id: params.dayId,
         title: data.title,
-        description: data.description || null,
+        note: data.description || null,
         type: data.type,
         start_time: data.startTime ? new Date(data.startTime) : null,
         end_time: data.endTime ? new Date(data.endTime) : null,
-        location_id: data.locationId || null,
-        created_by: session.user.id
+        place_id: data.locationId || null,
+        created_by_user_id: session.user.id
       }
     })
 
-    const items = await getDayItemsWithOverlaps(dayNumber, tripId)
-    const createdWithOverlap = items.find(i => i.id === created.id)
+    const items = await getDayItemsWithOverlaps(params.dayId)
 
     return ok(
       {
-        created: mapItem(created, createdWithOverlap?.overlap),
-        items: items.map(i => mapItem(i, i.overlap))
+        created: mapItem({ ...created, overlap: false }),
+        items: items.map(i => mapItem(i))
       },
       { status: 201 }
     )

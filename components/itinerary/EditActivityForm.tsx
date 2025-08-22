@@ -4,27 +4,28 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { UpdateItineraryItemData, ItineraryItem } from '@/types/itinerary'
+import { ItineraryItem, UpdateItineraryItemData } from '@/types/itinerary'
 import { DayChoiceModal } from './DayChoiceModal'
+import { PlaceSelector } from '@/components/places/PlaceSelector'
 
 interface Props {
   item: ItineraryItem
   _tripId: string
   tripStartDate: Date
-  onSubmit: (data: UpdateItineraryItemData) => Promise<{ success: boolean; error?: string }>
+  onSubmit: (data: UpdateItineraryItemData) => Promise<{ ok: boolean; error?: string; data?: ItineraryItem }>
   onCancel?: () => void
 }
 
 export function EditActivityForm({ item, _tripId, tripStartDate, onSubmit, onCancel }: Props) {
-  const originalDay = item.day
+  const dayNumber = parseInt(item.dayId || '1')
 
   const [formData, setFormData] = useState<Partial<UpdateItineraryItemData>>({
     title: item.title,
-    description: item.description,
+    description: item.description || undefined,
     type: item.type,
-    startTime: item.startTime,
-    endTime: item.endTime,
-    locationId: item.locationId
+    startTime: item.startTime ? new Date(item.startTime).toISOString() : undefined,
+    endTime: item.endTime ? new Date(item.endTime).toISOString() : undefined,
+    locationId: item.locationId || undefined
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -34,7 +35,7 @@ export function EditActivityForm({ item, _tripId, tripStartDate, onSubmit, onCan
     time: string
     originalDay: number
   } | null>(null)
-  const [selectedDay, setSelectedDay] = useState(originalDay)
+  const [selectedDay, setSelectedDay] = useState(dayNumber)
 
   // Helper function to detect early morning (1-6am)
   const isEarlyMorning = (timeString: string) => {
@@ -50,10 +51,10 @@ export function EditActivityForm({ item, _tripId, tripStartDate, onSubmit, onCan
     if (value && isEarlyMorning(value)) {
       setShowDayChoice({
         time: value,
-        originalDay: originalDay
+        originalDay: dayNumber
       })
     } else {
-      setSelectedDay(originalDay)
+      setSelectedDay(dayNumber)
     }
   }
 
@@ -64,8 +65,15 @@ export function EditActivityForm({ item, _tripId, tripStartDate, onSubmit, onCan
 
   const handleCloseDayChoice = () => {
     setShowDayChoice(null)
-    setSelectedDay(originalDay)
-    setFormData(prev => ({ ...prev, startTime: item.startTime }))
+    setSelectedDay(dayNumber)
+    setFormData(prev => ({ ...prev, startTime: item.startTime ? new Date(item.startTime).toISOString() : undefined }))
+  }
+
+  const handleClearTime = (field: 'startTime' | 'endTime') => {
+    setFormData(prev => ({ ...prev, [field]: null }))
+    if (field === 'startTime') {
+      setSelectedDay(dayNumber)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,23 +84,17 @@ export function EditActivityForm({ item, _tripId, tripStartDate, onSubmit, onCan
     setError(null)
 
     try {
-      const updateData: UpdateItineraryItemData = {
-        title: formData.title!,
+      const result = await onSubmit({
+        dayId: selectedDay !== dayNumber ? selectedDay.toString() : undefined,
+        title: formData.title,
         description: formData.description,
-        type: formData.type!,
+        type: formData.type,
         startTime: formData.startTime,
         endTime: formData.endTime,
         locationId: formData.locationId
-      }
+      })
 
-      // Include day change if different from original
-      if (selectedDay !== originalDay) {
-        updateData.dayId = selectedDay.toString()
-      }
-
-      const result = await onSubmit(updateData)
-
-      if (result.success) {
+      if (result.ok) {
         onCancel?.()
       } else {
         setError(result.error || 'Failed to update activity')
@@ -129,11 +131,35 @@ export function EditActivityForm({ item, _tripId, tripStartDate, onSubmit, onCan
             <Textarea
               id="description"
               value={formData.description || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value || undefined }))}
               placeholder="Optional description"
               className="mt-1"
               rows={3}
             />
+          </div>
+
+          <div className="md:col-span-2">
+            <Label htmlFor="location" className="text-sm font-medium text-gray-700">
+              Location
+            </Label>
+            <div className="space-y-2">
+              <PlaceSelector
+                value={formData.locationId || undefined}
+                onValueChange={(locationId) => setFormData(prev => ({ ...prev, locationId: locationId || undefined }))}
+                placeholder="Select or add a location"
+              />
+              {formData.locationId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFormData(prev => ({ ...prev, locationId: undefined }))}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  Clear Location
+                </Button>
+              )}
+            </div>
           </div>
 
           <div>
@@ -142,7 +168,9 @@ export function EditActivityForm({ item, _tripId, tripStartDate, onSubmit, onCan
             </Label>
             <Select
               value={formData.type}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, type: value as any }))}
+              onValueChange={(value: 'ACTIVITY' | 'TRANSPORT' | 'MEAL' | 'ACCOMMODATION' | 'MEETING' | 'FREE_TIME') =>
+                setFormData(prev => ({ ...prev, type: value }))
+              }
             >
               <SelectTrigger className="mt-1">
                 <SelectValue />
@@ -164,34 +192,60 @@ export function EditActivityForm({ item, _tripId, tripStartDate, onSubmit, onCan
             <Label htmlFor="startTime" className="text-sm font-medium text-gray-700">
               Start Time
             </Label>
-            <Input
-              id="startTime"
-              type="datetime-local"
-              value={formData.startTime ? formData.startTime.slice(0, 16) : ''}
-              onChange={(e) => handleStartTimeChange(e.target.value)}
-              className="mt-1"
-            />
+            <div className="space-y-2">
+              <Input
+                id="startTime"
+                type="datetime-local"
+                value={formData.startTime ? formData.startTime.slice(0, 16) : ''}
+                onChange={(e) => handleStartTimeChange(e.target.value)}
+                className="mt-1"
+              />
+              {formData.startTime && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleClearTime('startTime')}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  Clear Start Time
+                </Button>
+              )}
+            </div>
           </div>
 
           <div>
             <Label htmlFor="endTime" className="text-sm font-medium text-gray-700">
               End Time
             </Label>
-            <Input
-              id="endTime"
-              type="datetime-local"
-              value={formData.endTime ? formData.endTime.slice(0, 16) : ''}
-              onChange={(e) => setFormData(prev => ({
-                ...prev,
-                endTime: e.target.value ? new Date(e.target.value).toISOString() : undefined
-              }))}
-              className="mt-1"
-            />
+            <div className="space-y-2">
+              <Input
+                id="endTime"
+                type="datetime-local"
+                value={formData.endTime ? formData.endTime.slice(0, 16) : ''}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  endTime: e.target.value ? new Date(e.target.value).toISOString() : undefined
+                }))}
+                className="mt-1"
+              />
+              {formData.endTime && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleClearTime('endTime')}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  Clear End Time
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
-        {selectedDay !== originalDay && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg text-sm">
+        {selectedDay !== dayNumber && (
+          <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm">
             <strong>Note:</strong> This activity will be moved to Day {selectedDay}
           </div>
         )}
@@ -219,7 +273,7 @@ export function EditActivityForm({ item, _tripId, tripStartDate, onSubmit, onCan
         onClose={handleCloseDayChoice}
         onChooseDay={handleChooseDay}
         time={showDayChoice?.time || ''}
-        currentDay={showDayChoice?.originalDay || originalDay}
+        currentDay={showDayChoice?.originalDay || dayNumber}
         tripStartDate={tripStartDate}
       />
     </>

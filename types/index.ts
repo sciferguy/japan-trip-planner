@@ -1,10 +1,12 @@
-// types/index.ts
-// Central type barrel. Keep this file type-only (no runtime imports/functions).
-
-// Re-export Prisma generated types & enums.
+// types/index.ts - Updated to use generated types
+// Re-export Prisma generated types & enums
 export * from '@prisma/client'
 
-// Domain / API facing itinerary item (camelCase) if you map DB snake_case externally.
+// Re-export validation types directly from source
+export * from '../lib/validation/itinerary'
+export * from '../lib/validation/places'
+
+// Keep only types that aren't covered by Zod schemas
 export interface ApiItineraryItem {
   id: string
   tripId: string
@@ -20,7 +22,6 @@ export interface ApiItineraryItem {
   overlap: boolean
 }
 
-// Map / location related lightweight view model (separate from Prisma `locations`).
 export interface MapPin {
   id: string
   name: string
@@ -31,43 +32,18 @@ export interface MapPin {
   icon?: string
 }
 
-// Generic API envelopes.
-export interface ApiResponse<T> {
-  success: boolean
-  data?: T
-  error?: string
+export interface SessionUser {
+  id: string
+  email: string
+  name?: string
+  role: string
+  avatarUrl?: string
 }
 
-export interface PaginatedResponse<T> {
-  items: T[]
-  total: number
-  page: number
-  pageSize: number
-  hasNext: boolean
-  hasPrev: boolean
-}
-
-// App state fragments (example usage in stores/UI).
-export interface AppState {
-  pins: MapPin[]
-  itineraryItemsByDay: Record<string, ApiItineraryItem[]>
-}
-
-// Form payload examples (adjust as needed).
 export interface TripFormData {
   title: string
   startDate: Date
   endDate: Date
-}
-
-export interface ItineraryItemFormData {
-  day: number
-  title: string
-  description?: string
-  startTime?: Date
-  endTime?: Date
-  locationId?: string
-  type: string
 }
 
 export interface ExpenseFormData {
@@ -89,30 +65,7 @@ export interface ReservationFormData {
   notes?: string
 }
 
-// Unified create request for itinerary items (new relational dayId or legacy day).
-export interface CreateItineraryItemRequest {
-  title: string
-  description?: string | null
-  type: string
-  locationId?: string | null
-  // One of the following (prefer dayId):
-  dayId?: string | null
-  day?: number
-  // Optional ISO timestamps (or null)
-  startTime?: string | null
-  endTime?: string | null
-}
-
-// Basic session user projection.
-export interface SessionUser {
-  id: string
-  email: string
-  name?: string
-  role: string
-  avatarUrl?: string
-}
-
-// Store interface examples (lightweight).
+// Store interfaces
 export interface MapStore {
   pins: MapPin[]
   selectedPin: MapPin | null
@@ -130,6 +83,23 @@ export interface ItineraryStore {
   reorderItems: (items: ApiItineraryItem[]) => void
 }
 
-// NOTE:
-// Overlap calculation & DB queries were moved to `lib/itinerary/overlaps.ts`.
-// Do not import `prisma` or place runtime logic here to keep compilation fast.
+export interface AppState {
+  pins: MapPin[]
+  itineraryItemsByDay: Record<string, ApiItineraryItem[]>
+}
+
+// Common API envelope types
+export interface ApiResponse<T> {
+  success: boolean
+  data?: T
+  error?: string
+}
+
+export interface PaginatedResponse<T> {
+  items: T[]
+  total: number
+  page: number
+  pageSize: number
+  hasNext: boolean
+  hasPrev: boolean
+}

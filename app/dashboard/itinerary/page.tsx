@@ -37,9 +37,12 @@ async function getTrip() {
   const trip = await prisma.trips.findFirst({
     include: {
       itinerary_items: {
-        include: { locations: true },
+        include: {
+          day: true,
+          place: true
+        },
         orderBy: [
-          { day: 'asc' },
+          { day: { date: 'asc' } },
           { start_time: 'asc' },
           { created_at: 'asc' }
         ]
@@ -57,21 +60,28 @@ async function getTrip() {
     title: trip.title,
     start_date: trip.start_date.toISOString(),
     end_date: trip.end_date.toISOString(),
-    itinerary_items: trip.itinerary_items.map(item => ({
-      id: item.id,
-      tripId: item.trip_id,
-      dayId: item.day.toString(),
-      day: item.day,
-      title: item.title,
-      description: item.description,
-      startTime: item.start_time ? item.start_time.toISOString() : null,
-      endTime: item.end_time ? item.end_time.toISOString() : null,
-      locationId: item.location_id,
-      type: item.type as Trip['itinerary_items'][0]['type'],
-      createdBy: item.created_by,
-      createdAt: item.created_at.toISOString(),
-      overlap: false // Set default value
-    }))
+    itinerary_items: trip.itinerary_items.map((item, index) => {
+      // Calculate day number from trip start date and item day date
+      const tripStart = new Date(trip.start_date)
+      const itemDate = new Date(item.day.date)
+      const dayNumber = Math.ceil((itemDate.getTime() - tripStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
+
+      return {
+        id: item.id,
+        tripId: trip.id, // Use actual trip id
+        dayId: item.day_id,
+        day: dayNumber,
+        title: item.title,
+        description: item.note, // note field in schema, not description
+        startTime: item.start_time ? item.start_time.toISOString() : null,
+        endTime: item.end_time ? item.end_time.toISOString() : null,
+        locationId: item.place_id, // place_id in schema, not location_id
+        type: item.type as Trip['itinerary_items'][0]['type'],
+        createdBy: item.created_by_user_id,
+        createdAt: item.created_at.toISOString(),
+        overlap: false // Set default value
+      }
+    })
   }
 
   return transformedTrip

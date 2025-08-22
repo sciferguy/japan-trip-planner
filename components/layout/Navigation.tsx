@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { SignOutButton } from '@/components/SignOutButton'
 import { useSession, signIn } from 'next-auth/react'
+import { TripSelector } from '@/components/trips/TripSelector'
 
 export function Navigation() {
   const pathname = usePathname()
@@ -32,6 +33,14 @@ export function Navigation() {
         <Link href="/dashboard" className="font-semibold">
           Japan Trip Planner
         </Link>
+
+        {/* Trip Selector - only show when authenticated */}
+        {session?.user && (
+          <div className="hidden sm:block">
+            <TripSelector />
+          </div>
+        )}
+
         <nav className="flex flex-1 items-center gap-2">
           {navItems.map(item => (
             <Link
@@ -48,6 +57,7 @@ export function Navigation() {
             </Link>
           ))}
         </nav>
+
         <div className="flex items-center gap-3">
           <ThemeToggle />
           {status === 'loading' && (
@@ -70,6 +80,13 @@ export function Navigation() {
           )}
         </div>
       </div>
+
+      {/* Mobile trip selector */}
+      {session?.user && (
+        <div className="block sm:hidden border-t bg-gray-50 px-4 py-2">
+          <TripSelector />
+        </div>
+      )}
     </header>
   )
 }

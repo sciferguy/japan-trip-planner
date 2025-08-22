@@ -66,7 +66,7 @@ export default async function AddActivityPage({ params, searchParams }: PageProp
       }
 
       return { success: true }
-    } catch (error) {
+    } catch (_error) {
       return { success: false, error: 'Failed to create activity' }
     }
   }
