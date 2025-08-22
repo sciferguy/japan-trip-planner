@@ -1,200 +1,281 @@
-'use client'
-
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-
-interface Activity {
-  id: string
-  title: string
-  description?: string
-  day: number
-  start_time?: string
-  end_time?: string
-  type: string
-  locations: {
-    id: string
-    name: string
-    address: string
-  } | null
-}
+import { ItineraryItem, UpdateItineraryItemData } from '@/types/itinerary'
+import { DayChoiceModal } from './DayChoiceModal'
+import { PlaceSelector } from '@/components/places/PlaceSelector'
 
 interface Props {
-  activity: Activity
-  userId: string
+  item: ItineraryItem
+  _tripId: string
+  tripStartDate: Date
+  onSubmit: (data: UpdateItineraryItemData) => Promise<{ ok: boolean; error?: string; data?: ItineraryItem }>
+  onCancel?: () => void
 }
 
-const ACTIVITY_TYPES = [
-  { value: 'ACTIVITY', label: 'Activity' },
-  { value: 'TRANSPORT', label: 'Transport' },
-  { value: 'MEAL', label: 'Meal' },
-  { value: 'ACCOMMODATION', label: 'Accommodation' },
-  { value: 'MEETING', label: 'Meeting' },
-  { value: 'FREE_TIME', label: 'Free Time' }
-]
+export function EditActivityForm({ item, _tripId, tripStartDate, onSubmit, onCancel }: Props) {
+  const dayNumber = parseInt(item.dayId || '1')
 
-export function EditActivityForm({ activity, userId }: Props) {
-  const router = useRouter()
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [formData, setFormData] = useState<Partial<UpdateItineraryItemData>>({
+    title: item.title,
+    description: item.description || undefined,
+    type: item.type,
+    startTime: item.startTime ? new Date(item.startTime).toISOString() : undefined,
+    endTime: item.endTime ? new Date(item.endTime).toISOString() : undefined,
+    locationId: item.locationId || undefined
+  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const formatTimeForInput = (timeString?: string) => {
-    if (!timeString) return ''
-    const date = new Date(timeString)
-    return date.toTimeString().slice(0, 5) // HH:MM format
+  // Day choice modal state
+  const [showDayChoice, setShowDayChoice] = useState<{
+    time: string
+    originalDay: number
+  } | null>(null)
+  const [selectedDay, setSelectedDay] = useState(dayNumber)
+
+  // Helper function to detect early morning (1-6am)
+  const isEarlyMorning = (timeString: string) => {
+    const time = new Date(timeString)
+    const hour = time.getHours()
+    return hour >= 1 && hour <= 6
   }
 
-  const [formData, setFormData] = useState({
-    title: activity.title,
-    description: activity.description || '',
-    day: activity.day,
-    start_time: formatTimeForInput(activity.start_time),
-    end_time: formatTimeForInput(activity.end_time),
-    type: activity.type,
-    location_name: activity.locations?.name || '',
-    location_address: activity.locations?.address || ''
-  })
+  const handleStartTimeChange = (value: string) => {
+    const isoString = value ? new Date(value).toISOString() : undefined
+    setFormData(prev => ({ ...prev, startTime: isoString }))
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-
-    try {
-      const response = await fetch(`/api/itinerary-items/${activity.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          ...formData,
-          start_time: formData.start_time ? new Date(`1970-01-01T${formData.start_time}:00`).toISOString() : null,
-          end_time: formData.end_time ? new Date(`1970-01-01T${formData.end_time}:00`).toISOString() : null
-        })
+    if (value && isEarlyMorning(value)) {
+      setShowDayChoice({
+        time: value,
+        originalDay: dayNumber
       })
-
-      if (response.ok) {
-        router.push('/dashboard/itinerary')
-        router.refresh()
-      } else {
-        throw new Error('Failed to update activity')
-      }
-    } catch (error) {
-      console.error('Error updating activity:', error)
-      alert('Failed to update activity. Please try again.')
-    } finally {
-      setIsSubmitting(false)
+    } else {
+      setSelectedDay(dayNumber)
     }
   }
 
-  const handleChange = (field: string, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+  const handleChooseDay = (chosenDay: number) => {
+    setSelectedDay(chosenDay)
+    setShowDayChoice(null)
+  }
+
+  const handleCloseDayChoice = () => {
+    setShowDayChoice(null)
+    setSelectedDay(dayNumber)
+    setFormData(prev => ({ ...prev, startTime: item.startTime ? new Date(item.startTime).toISOString() : undefined }))
+  }
+
+  const handleClearTime = (field: 'startTime' | 'endTime') => {
+    setFormData(prev => ({ ...prev, [field]: null }))
+    if (field === 'startTime') {
+      setSelectedDay(dayNumber)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formData.title) return
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const result = await onSubmit({
+        dayId: selectedDay !== dayNumber ? selectedDay.toString() : undefined,
+        title: formData.title,
+        description: formData.description,
+        type: formData.type,
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        locationId: formData.locationId
+      })
+
+      if (result.ok) {
+        onCancel?.()
+      } else {
+        setError(result.error || 'Failed to update activity')
+      }
+    } catch {
+      setError('An error occurred')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="md:col-span-2">
-          <Label htmlFor="title">Activity Title *</Label>
-          <Input
-            id="title"
-            value={formData.title}
-            onChange={(e) => handleChange('title', e.target.value)}
-            placeholder="e.g., Visit Senso-ji Temple"
-            required
-          />
+    <>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <Label htmlFor="title" className="text-sm font-medium text-gray-700">
+              Title *
+            </Label>
+            <Input
+              id="title"
+              required
+              value={formData.title || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+              placeholder="Activity title"
+              className="mt-1"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <Label htmlFor="description" className="text-sm font-medium text-gray-700">
+              Description
+            </Label>
+            <Textarea
+              id="description"
+              value={formData.description || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value || undefined }))}
+              placeholder="Optional description"
+              className="mt-1"
+              rows={3}
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <Label htmlFor="location" className="text-sm font-medium text-gray-700">
+              Location
+            </Label>
+            <div className="space-y-2">
+              <PlaceSelector
+                value={formData.locationId || undefined}
+                onValueChange={(locationId) => setFormData(prev => ({ ...prev, locationId: locationId || undefined }))}
+                placeholder="Select or add a location"
+              />
+              {formData.locationId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFormData(prev => ({ ...prev, locationId: undefined }))}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  Clear Location
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="type" className="text-sm font-medium text-gray-700">
+              Type
+            </Label>
+            <Select
+              value={formData.type}
+              onValueChange={(value: 'ACTIVITY' | 'TRANSPORT' | 'MEAL' | 'ACCOMMODATION' | 'MEETING' | 'FREE_TIME') =>
+                setFormData(prev => ({ ...prev, type: value }))
+              }
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ACTIVITY">Activity</SelectItem>
+                <SelectItem value="TRANSPORT">Transport</SelectItem>
+                <SelectItem value="MEAL">Meal</SelectItem>
+                <SelectItem value="ACCOMMODATION">Accommodation</SelectItem>
+                <SelectItem value="MEETING">Meeting</SelectItem>
+                <SelectItem value="FREE_TIME">Free Time</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div />
+
+          <div>
+            <Label htmlFor="startTime" className="text-sm font-medium text-gray-700">
+              Start Time
+            </Label>
+            <div className="space-y-2">
+              <Input
+                id="startTime"
+                type="datetime-local"
+                value={formData.startTime ? formData.startTime.slice(0, 16) : ''}
+                onChange={(e) => handleStartTimeChange(e.target.value)}
+                className="mt-1"
+              />
+              {formData.startTime && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleClearTime('startTime')}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  Clear Start Time
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="endTime" className="text-sm font-medium text-gray-700">
+              End Time
+            </Label>
+            <div className="space-y-2">
+              <Input
+                id="endTime"
+                type="datetime-local"
+                value={formData.endTime ? formData.endTime.slice(0, 16) : ''}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  endTime: e.target.value ? new Date(e.target.value).toISOString() : undefined
+                }))}
+                className="mt-1"
+              />
+              {formData.endTime && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleClearTime('endTime')}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  Clear End Time
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="md:col-span-2">
-          <Label htmlFor="description">Description</Label>
-          <Textarea
-            id="description"
-            value={formData.description}
-            onChange={(e) => handleChange('description', e.target.value)}
-            placeholder="Optional details about this activity..."
-            rows={3}
-          />
-        </div>
+        {selectedDay !== dayNumber && (
+          <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm">
+            <strong>Note:</strong> This activity will be moved to Day {selectedDay}
+          </div>
+        )}
 
-        <div>
-          <Label htmlFor="day">Day</Label>
-          <Input
-            id="day"
-            type="number"
-            min="1"
-            value={formData.day}
-            onChange={(e) => handleChange('day', parseInt(e.target.value))}
-            required
-          />
-        </div>
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
+            <strong>Error:</strong> {error}
+          </div>
+        )}
 
-        <div>
-          <Label htmlFor="type">Activity Type</Label>
-          <Select value={formData.type} onValueChange={(value) => handleChange('type', value)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {ACTIVITY_TYPES.map((type) => (
-                <SelectItem key={type.value} value={type.value}>
-                  {type.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex justify-end gap-3 pt-4 border-t">
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+          <Button type="submit" disabled={loading || !formData.title}>
+            {loading ? 'Updating...' : 'Update Activity'}
+          </Button>
         </div>
+      </form>
 
-        <div>
-          <Label htmlFor="start_time">Start Time</Label>
-          <Input
-            id="start_time"
-            type="time"
-            value={formData.start_time}
-            onChange={(e) => handleChange('start_time', e.target.value)}
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="end_time">End Time</Label>
-          <Input
-            id="end_time"
-            type="time"
-            value={formData.end_time}
-            onChange={(e) => handleChange('end_time', e.target.value)}
-          />
-        </div>
-
-        <div className="md:col-span-2">
-          <Label htmlFor="location_name">Location Name</Label>
-          <Input
-            id="location_name"
-            value={formData.location_name}
-            onChange={(e) => handleChange('location_name', e.target.value)}
-            placeholder="e.g., Senso-ji Temple"
-          />
-        </div>
-
-        <div className="md:col-span-2">
-          <Label htmlFor="location_address">Location Address</Label>
-          <Input
-            id="location_address"
-            value={formData.location_address}
-            onChange={(e) => handleChange('location_address', e.target.value)}
-            placeholder="e.g., 2-3-1 Asakusa, Taito City, Tokyo"
-          />
-        </div>
-      </div>
-
-      <div className="flex items-center justify-end space-x-4 pt-6">
-        <Button type="button" variant="outline" onClick={() => router.back()}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Updating...' : 'Update Activity'}
-        </Button>
-      </div>
-    </form>
+      <DayChoiceModal
+        isOpen={!!showDayChoice}
+        onClose={handleCloseDayChoice}
+        onChooseDay={handleChooseDay}
+        time={showDayChoice?.time || ''}
+        currentDay={showDayChoice?.originalDay || dayNumber}
+        tripStartDate={tripStartDate}
+      />
+    </>
   )
 }

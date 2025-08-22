@@ -1,4 +1,3 @@
-// File: app/api/days/[dayId]/itinerary-items/route.ts
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { run, ok, fail } from '@/lib/api/response'
@@ -7,75 +6,110 @@ import { TripMemberRole } from '@prisma/client'
 import { createItineraryItemSchema } from '@/lib/validation/itinerary'
 import { getDayItemsWithOverlaps } from '@/lib/itinerary/overlaps'
 
-function mapItem(db: any, overlap?: boolean) {
+// Transform function to convert database item to API format
+function toApiItineraryItem(item: any) {
   return {
-    id: db.id,
-    tripId: db.trip_id,
-    dayId: db.day_id,
-    title: db.title,
-    description: db.description,
-    startTime: db.start_time,
-    endTime: db.end_time,
-    locationId: db.location_id,
-    type: db.type,
-    createdBy: db.created_by,
-    createdAt: db.created_at,
-    overlap: overlap ?? false
+    id: item.id,
+    tripId: item.tripsId || '', // Handle optional trip relation
+    dayId: item.day_id,
+    day: 1, // Default value, calculate properly if needed
+    title: item.title,
+    description: item.note,
+    startTime: item.start_time?.toISOString() || null,
+    endTime: item.end_time?.toISOString() || null,
+    locationId: item.place_id,
+    type: item.type,
+    createdBy: item.created_by_user_id,
+    createdAt: item.created_at.toISOString(),
+    overlap: item.overlap || false
   }
 }
 
-export const GET = (_req: Request, { params }: { params: { dayId: string } }) =>
+export const GET = (req: Request, { params }: { params: { dayId: string } }) =>
   run(async () => {
     const session = await auth()
     if (!session?.user?.id) return fail(401, 'UNAUTH', 'Unauthorized')
-    const day = await prisma.days.findUnique({ where: { id: params.dayId } })
+
+    // Verify day exists and get trip info
+    const day = await prisma.days.findUnique({
+      where: { id: params.dayId },
+      include: { trip: true }
+    })
     if (!day) return fail(404, 'NOT_FOUND', 'Day not found')
+
     await requireMembership(day.trip_id, session.user.id)
 
     const items = await getDayItemsWithOverlaps(params.dayId)
-    return ok(items.map(i => mapItem(i, i.overlap)))
+    return ok(items.map(i => toApiItineraryItem(i)))
   })
 
 export const POST = (req: Request, { params }: { params: { dayId: string } }) =>
   run(async () => {
     const session = await auth()
     if (!session?.user?.id) return fail(401, 'UNAUTH', 'Unauthorized')
-    const day = await prisma.days.findUnique({ where: { id: params.dayId } })
+
+    // Verify day exists and get trip info
+    const day = await prisma.days.findUnique({
+      where: { id: params.dayId },
+      include: { trip: true }
+    })
     if (!day) return fail(404, 'NOT_FOUND', 'Day not found')
+
     await requireTripRole(day.trip_id, session.user.id, TripMemberRole.EDITOR)
 
-    const body = await req.json().catch(() => null)
-    if (!body) return fail(400, 'BAD_JSON', 'Invalid JSON')
+    const body = await req.json()
+    const parsed = createItineraryItemSchema.safeParse(body)
 
-    const parsed = createItineraryItemSchema.safeParse({ ...body, dayId: params.dayId })
     if (!parsed.success) {
-      return fail(400, 'VALIDATION', 'Validation failed', {
-        fieldErrors: parsed.error.flatten().fieldErrors
-      })
+      return fail(400, 'VALIDATION_ERROR', 'Invalid data', parsed.error.issues)
     }
+
     const data = parsed.data
+
+    // Use dayId from request body if provided, otherwise use URL param
+    const targetDayId = data.dayId || params.dayId
+
+    // Verify target day exists and belongs to same trip
+    const targetDay = await prisma.days.findUnique({
+      where: { id: targetDayId }
+    })
+
+    if (!targetDay || targetDay.trip_id !== day.trip_id) {
+      return fail(400, 'INVALID_DAY', 'Invalid day for this trip')
+    }
+
+    // Validate place belongs to trip if provided
+    if (data.locationId) {
+      const place = await prisma.places.findFirst({
+        where: {
+          id: data.locationId,
+          trip_id: day.trip_id
+        }
+      })
+
+      if (!place) {
+        return fail(400, 'INVALID_LOCATION', 'Place does not belong to this trip')
+      }
+    }
 
     const created = await prisma.itinerary_items.create({
       data: {
-        id: crypto.randomUUID(),
-        trip_id: day.trip_id,
-        day_id: data.dayId,
+        day_id: targetDayId, // Use direct field assignment
         title: data.title,
-        description: data.description,
+        note: data.description,
         type: data.type,
         start_time: data.startTime ? new Date(data.startTime) : null,
         end_time: data.endTime ? new Date(data.endTime) : null,
-        location_id: data.locationId || null,
-        created_by: session.user.id
+        place_id: data.locationId || null, // Use direct field assignment
+        created_by_user_id: session.user.id // Use direct field assignment
       }
     })
 
-    // Recompute full day (single source of truth for overlap flags)
-    const items = await getDayItemsWithOverlaps(data.dayId)
-    // Find created overlap flag
-    const createdWithOverlap = items.find(i => i.id === created.id)
+    // Get updated items for the target day to return with overlaps calculated
+    const items = await getDayItemsWithOverlaps(targetDayId)
+
     return ok({
-      created: mapItem(created, createdWithOverlap?.overlap),
-      items: items.map(i => mapItem(i, i.overlap))
-    }, { status: 201 })
+      created: toApiItineraryItem({ ...created, overlap: false }), // Add overlap field
+      items: items.map(i => toApiItineraryItem(i))
+    })
   })

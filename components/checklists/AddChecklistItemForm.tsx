@@ -1,21 +1,17 @@
-// components/checklists/AddChecklistItemForm.tsx
 import { useState } from 'react'
 
 interface AddChecklistItemFormProps {
   tripId: string
-  userId: string
   onSubmit: (data: {
-    trip_id: string
+    tripId: string
     title: string
     category: string
-    user_id: string
-  }) => Promise<{ success: boolean; error?: string }>
+  }) => Promise<{ ok: boolean; error?: string }>
   onCancel?: () => void
 }
 
 export function AddChecklistItemForm({
   tripId,
-  userId,
   onSubmit,
   onCancel
 }: AddChecklistItemFormProps) {
@@ -34,13 +30,12 @@ export function AddChecklistItemForm({
     setError(null)
 
     const result = await onSubmit({
-      trip_id: tripId,
+      tripId,
       title: formData.title.trim(),
       category: formData.category,
-      user_id: userId,
     })
 
-    if (result.success) {
+    if (result.ok) {
       setFormData({ title: '', category: 'PREPARATION' })
       onCancel?.()
     } else {
@@ -59,54 +54,50 @@ export function AddChecklistItemForm({
   ]
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 p-4">
-      <h3 className="font-medium text-gray-900 mb-4">Add Checklist Item</h3>
-
+    <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
-          <p className="text-sm text-red-800">{error}</p>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
+          <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
         </div>
       )}
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Item *
-          </label>
-          <input
-            type="text"
-            required
-            value={formData.title}
-            onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter checklist item"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Category
-          </label>
-          <select
-            value={formData.category}
-            onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as any }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            {categories.map(cat => (
-              <option key={cat.value} value={cat.value}>
-                {cat.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-stone-300 mb-1">
+          Item *
+        </label>
+        <input
+          type="text"
+          required
+          value={formData.title}
+          onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-tea-500 dark:focus:ring-tea-400 focus:border-tea-500"
+          placeholder="Enter checklist item"
+        />
       </div>
 
-      <div className="flex justify-end gap-2 mt-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-stone-300 mb-1">
+          Category
+        </label>
+        <select
+          value={formData.category}
+          onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as any }))}
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-tea-500 dark:focus:ring-tea-400 focus:border-tea-500"
+        >
+          {categories.map(cat => (
+            <option key={cat.value} value={cat.value}>
+              {cat.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex justify-end gap-2">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-stone-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600"
           >
             Cancel
           </button>
@@ -114,7 +105,7 @@ export function AddChecklistItemForm({
         <button
           type="submit"
           disabled={loading || !formData.title.trim()}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-4 py-2 text-sm font-medium text-white bg-tea-600 dark:bg-tea-500 rounded-md hover:bg-tea-700 dark:hover:bg-tea-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? 'Adding...' : 'Add Item'}
         </button>

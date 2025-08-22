@@ -24,7 +24,12 @@ export function hasSufficientRole(actual: TripMemberRole, needed: TripMemberRole
 
 export async function getMembership(tripId: string, userId: string) {
   return prisma.trip_members.findUnique({
-    where: { trip_id_user_id: { trip_id: tripId, user_id: userId } }
+    where: {
+      trip_id_user_id: {
+        trip_id: tripId,
+        user_id: userId
+      }
+    }
   })
 }
 
@@ -48,9 +53,30 @@ export async function requireTripRole(
   return m
 }
 
-// Utility to assert an entity belongs to a trip (defensive cross‑trip guard)
 export async function assertEntityTrip(entity: { trip_id: string }, expectedTripId: string) {
   if (entity.trip_id !== expectedTripId) {
     throw new ApiError(400, 'CROSS_TRIP', 'Entity does not belong to trip')
+  }
+}
+
+export async function getSessionUser(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, name: true, role: true }
+  })
+
+  if (!user) {
+    throw new ApiError(401, 'UNAUTHORIZED', 'User not found')
+  }
+
+  return user
+}
+
+export function createAuthMiddleware() {
+  return async (req: Request, userId?: string) => {
+    if (!userId) {
+      throw new ApiError(401, 'UNAUTHORIZED', 'Authentication required')
+    }
+    return getSessionUser(userId)
   }
 }

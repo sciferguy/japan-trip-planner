@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { UpdateItineraryItemData, ItineraryItem } from '@/types/itinerary'
 
 const prisma = new PrismaClient()
 
@@ -14,26 +15,51 @@ interface PageProps {
   params: { tripId: string; id: string }
 }
 
-async function getActivity(id: string) {
-  const item = await prisma.itinerary_items.findUnique({
-    where: { id },
-    include: { locations: true }
-  })
+async function getActivityAndTrip(itemId: string, tripId: string) {
+  const [item, trip] = await Promise.all([
+    prisma.itinerary_items.findUnique({
+      where: { id: itemId },
+      include: {
+        place: true,
+        day: true
+      }
+    }),
+    prisma.trips.findUnique({
+      where: { id: tripId },
+      select: { id: true, start_date: true, end_date: true }
+    })
+  ])
 
-  if (!item) return null
+  if (!item || !trip || item.day.trip_id !== tripId) return null
+
+  // Calculate day number from trip start date and item day date
+  const tripStart = new Date(trip.start_date)
+  const itemDate = new Date(item.day.date)
+  const dayNumber = Math.ceil((itemDate.getTime() - tripStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
+
+  const transformedItem: ItineraryItem = {
+    id: item.id,
+    tripId: tripId,
+    dayId: item.day_id,
+    day: dayNumber,
+    title: item.title,
+    description: item.note,
+    startTime: item.start_time?.toISOString() || null,
+    endTime: item.end_time?.toISOString() || null,
+    locationId: item.place_id,
+    type: item.type as ItineraryItem['type'],
+    createdBy: item.created_by_user_id,
+    createdAt: item.created_at.toISOString(),
+    overlap: false
+  }
 
   return {
-    ...item,
-    description: item.description ?? undefined,
-    location_id: item.location_id ?? undefined,
-    start_time: item.start_time ? item.start_time.toISOString() : undefined,
-    end_time: item.end_time ? item.end_time.toISOString() : undefined,
-    created_at: item.created_at.toISOString(),
-    locations: item.locations ? {
-      ...item.locations,
-      google_place_id: item.locations.google_place_id ?? undefined,
-      custom_notes: item.locations.custom_notes ?? undefined
-    } : null
+    item: transformedItem,
+    trip: {
+      ...trip,
+      start_date: trip.start_date,
+      end_date: trip.end_date
+    }
   }
 }
 
@@ -43,9 +69,38 @@ export default async function EditActivityPage({ params }: PageProps) {
     redirect('/sign-in')
   }
 
-  const activity = await getActivity(params.id)
-  if (!activity) {
+  const data = await getActivityAndTrip(params.id, params.tripId)
+  if (!data) {
     redirect('/dashboard/itinerary')
+  }
+
+  const { item, trip } = data
+
+  const handleSubmit = async (updateData: UpdateItineraryItemData) => {
+    'use server'
+
+    try {
+      const targetDayId = updateData.dayId || item.dayId
+
+      const response = await fetch(`${process.env.NEXTAUTH_URL}/api/itinerary-items/${item.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...updateData,
+          dayId: targetDayId
+        })
+      })
+
+      if (!response.ok) {
+        const error = await response.text()
+        return { ok: false, error }
+      }
+
+      const result = await response.json()
+      return { ok: true, data: result }
+    } catch {
+      return { ok: false, error: 'Failed to update activity' }
+    }
   }
 
   return (
@@ -54,7 +109,7 @@ export default async function EditActivityPage({ params }: PageProps) {
         {/* Header */}
         <div className="mb-8">
           <Button asChild variant="ghost" className="mb-4">
-            <Link href="/dashboard/itinerary">
+            <Link href={`/dashboard/itinerary/${params.tripId}`}>
               <ArrowLeft size={16} className="mr-2" />
               Back to Itinerary
             </Link>
@@ -63,15 +118,18 @@ export default async function EditActivityPage({ params }: PageProps) {
             Edit Activity
           </h1>
           <p className="text-gray-600">
-            Update details for "{activity.title}"
+            Update details for &quot;{item.title}&quot;
           </p>
         </div>
 
         <Card className="p-6">
           <Suspense fallback={<div>Loading...</div>}>
             <EditActivityForm
-              activity={activity}
-              userId={session.user.id!}
+              item={item}
+              _tripId={params.tripId}
+              tripStartDate={trip.start_date instanceof Date ? trip.start_date : new Date(trip.start_date)}
+              onSubmit={handleSubmit}
+              onCancel={() => redirect(`/dashboard/itinerary/${params.tripId}`)}
             />
           </Suspense>
         </Card>

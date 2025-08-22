@@ -1,5 +1,4 @@
-// typescript
-// `lib/itinerary/overlaps.ts`
+// lib/itinerary/overlaps.ts
 import { prisma } from '@/lib/prisma'
 
 export interface ItineraryInterval {
@@ -10,15 +9,14 @@ export interface ItineraryInterval {
 
 export interface ItineraryWithOverlap {
   id: string
-  trip_id: string
-  day_id: string | null
+  day_id: string
   title: string
-  description: string | null
+  note: string | null
   start_time: Date | null
   end_time: Date | null
-  location_id: string | null
+  place_id: string | null
   type: string
-  created_by: string
+  created_by_user_id: string
   created_at: Date
   overlap: boolean
 }
@@ -70,44 +68,51 @@ export function computeOverlaps(items: ItineraryInterval[]): Record<string, bool
 
 export async function getDayItemsWithOverlaps(dayId: string): Promise<ItineraryWithOverlap[]> {
   const items = await prisma.itinerary_items.findMany({
-    where: { day_id: dayId },
+    where: {
+      day_id: dayId
+    },
     orderBy: [
       { start_time: 'asc' },
       { created_at: 'asc' }
     ]
   })
+
   const intervals: ItineraryInterval[] = items.map(i => ({
     id: i.id,
     start_time: i.start_time,
     end_time: i.end_time
   }))
-  const map = computeOverlaps(intervals)
-  return items.map(i => ({ ...i, overlap: !!map[i.id] }))
+
+  const overlaps = computeOverlaps(intervals)
+  return items.map(i => ({ ...i, overlap: overlaps[i.id] || false }))
 }
 
 /**
- * Batch helper: returns a record keyed by dayId with arrays including overlap flags.
+ * Batch helper: returns a record keyed by day ID with arrays including overlap flags.
  */
 export async function getDaysItemsWithOverlaps(dayIds: string[]): Promise<Record<string, ItineraryWithOverlap[]>> {
   const unique = Array.from(new Set(dayIds))
   const all = await prisma.itinerary_items.findMany({
-    where: { day_id: { in: unique } },
+    where: {
+      day_id: { in: unique }
+    },
     orderBy: [
       { day_id: 'asc' },
       { start_time: 'asc' },
       { created_at: 'asc' }
     ]
   })
+
   const grouped: Record<string, ItineraryWithOverlap[]> = {}
-  for (const d of unique) {
-    const subset = all.filter(i => i.day_id === d)
+  for (const dayId of unique) {
+    const subset = all.filter(i => i.day_id === dayId)
     const intervals: ItineraryInterval[] = subset.map(i => ({
       id: i.id,
       start_time: i.start_time,
       end_time: i.end_time
     }))
-    const map = computeOverlaps(intervals)
-    grouped[d] = subset.map(i => ({ ...i, overlap: !!map[i.id] }))
+    const overlaps = computeOverlaps(intervals)
+    grouped[dayId] = subset.map(i => ({ ...i, overlap: overlaps[i.id] || false }))
   }
   return grouped
 }

@@ -1,33 +1,27 @@
-// types/itinerary.ts
+// types/itinerary.ts - Simplified to use generated types
+// Re-export generated types only after they exist
+export * from '../lib/validation/itinerary'
+
+// Keep only legacy types for backward compatibility
 export interface ItineraryItem {
   id: string
-  trip_id: string
-  day: number
+  tripId: string
+  dayId: string | null
+  day: number // legacy field for backward compatibility
   title: string
-  description?: string
-  start_time?: string
-  end_time?: string
-  location_id?: string
+  description: string | null
+  startTime: string | null
+  endTime: string | null
+  locationId: string | null
   type: 'ACTIVITY' | 'TRANSPORT' | 'MEAL' | 'ACCOMMODATION' | 'MEETING' | 'FREE_TIME'
-  created_by: string
-  created_at: string
-  locations?: {
-    id: string
-    name: string
-    address: string
-    lat: number
-    lng: number
-  } | null
+  createdBy: string
+  createdAt: string
+  overlap: boolean
 }
 
-export interface CreateItineraryItemData {
-  trip_id: string
-  day: number
-  title: string
-  description?: string
-  start_time?: string
-  end_time?: string
-  location_id?: string
-  type: ItineraryItem['type']
-  created_by: string
-}
+// Type aliases for easier migration
+export type CreateItineraryItemData = import('../lib/validation/itinerary').CreateItineraryItemInput
+export type UpdateItineraryItemData = import('../lib/validation/itinerary').UpdateItineraryItemInput
+
+// Legacy type alias
+export type ItineraryItemType = import('@prisma/client').ItineraryItemType

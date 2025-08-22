@@ -1,19 +1,19 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import type { Trip } from '@/types'
+import type { trips } from '@prisma/client'
 
 interface TripState {
-  currentTrip: Trip | null
-  trips: Trip[]
+  currentTrip: trips | null
+  trips: trips[]
   isLoading: boolean
   error: string | null
 }
 
 interface TripActions {
-  setCurrentTrip: (trip: Trip | null) => void
-  setTrips: (trips: Trip[]) => void
-  addTrip: (trip: Trip) => void
-  updateTrip: (id: string, data: Partial<Trip>) => void
+  setCurrentTrip: (trip: trips | null) => void
+  setTrips: (trips: trips[]) => void
+  addTrip: (trip: trips) => void
+  updateTrip: (id: string, data: Partial<trips>) => void
   deleteTrip: (id: string) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
@@ -21,8 +21,8 @@ interface TripActions {
 }
 
 export const useTripStore = create<TripState & TripActions>()(
-  devtools(
-    (set, get) => ({
+    devtools(
+        (set) => ({
       // State
       currentTrip: null,
       trips: [],
@@ -39,10 +39,10 @@ export const useTripStore = create<TripState & TripActions>()(
       },
       updateTrip: (id, data) => {
         set((state) => ({
-          trips: state.trips.map(trip => 
+          trips: state.trips.map(trip =>
             trip.id === id ? { ...trip, ...data } : trip
           ),
-          currentTrip: state.currentTrip?.id === id 
+          currentTrip: state.currentTrip?.id === id
             ? { ...state.currentTrip, ...data }
             : state.currentTrip
         }))

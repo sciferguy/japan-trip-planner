@@ -19,10 +19,10 @@ export async function PUT(request: NextRequest, { params }: { params: { tripId: 
     const data = UpdateItineraryItemSchema.parse(body)
     const { tripId } = params
 
-    // Get current item for overlap checking
+    // Get current item for overlap checking - fix field references
     const currentItem = await prisma.itinerary_items.findUnique({
       where: { id: tripId },
-      select: { trip_id: true, day: true }
+      include: { day: true } // Include day relation to get trip_id
     })
 
     if (!currentItem) {
@@ -33,8 +33,10 @@ export async function PUT(request: NextRequest, { params }: { params: { tripId: 
     if (data.start_time && data.end_time) {
       const overlaps = await prisma.itinerary_items.findMany({
         where: {
-          trip_id: currentItem.trip_id,
-          day: currentItem.day,
+          day: {
+            trip_id: currentItem.day.trip_id // Access trip_id through day relation
+          },
+          day_id: currentItem.day_id, // Use day_id instead of day
           id: { not: tripId }, // Exclude current item
           AND: [
             { start_time: { not: null } },
@@ -78,12 +80,15 @@ export async function PUT(request: NextRequest, { params }: { params: { tripId: 
     const item = await prisma.itinerary_items.update({
       where: { id: tripId },
       data: {
-        ...data,
+        title: data.title,
+        note: data.description, // Use 'note' field instead of 'description'
         start_time: data.start_time ? new Date(data.start_time) : undefined,
         end_time: data.end_time ? new Date(data.end_time) : undefined,
+        place_id: data.location_id, // Use 'place_id' instead of 'location_id'
+        type: data.type
       },
       include: {
-        locations: true
+        place: true // Use 'place' relation instead of 'locations'
       }
     })
 

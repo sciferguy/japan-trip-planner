@@ -37,6 +37,7 @@ export default function DashboardLayout({
   const navigationLinks = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/dashboard/itinerary', label: 'Itinerary', icon: Calendar },
+    { href: '/dashboard/places', label: 'Places', icon: Map }, // Add this line
     { href: '/dashboard/map', label: 'Map', icon: Map },
     { href: '/dashboard/reservations', label: 'Reservations', icon: Hotel },
     { href: '/dashboard/checklists', label: 'Checklists', icon: CheckSquare },

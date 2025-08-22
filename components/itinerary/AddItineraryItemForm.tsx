@@ -1,122 +1,119 @@
 // components/itinerary/AddItineraryItemForm.tsx
 import { useState } from 'react'
 import { CreateItineraryItemData, ItineraryItem } from '@/types/itinerary'
+import { PlaceSelector } from '@/components/places/PlaceSelector'
+import { usePlaces } from '@/hooks/usePlaces'
+
+type ItineraryItemType = 'ACTIVITY' | 'TRANSPORT' | 'MEAL' | 'ACCOMMODATION' | 'MEETING' | 'FREE_TIME'
 
 interface AddItineraryItemFormProps {
-  tripId: string
-  day: number
-  userId: string
+  dayId: string
   onSubmit: (data: CreateItineraryItemData) => Promise<{
-    success: boolean
+    ok: boolean
     error?: string
-    overlaps?: any[]
-    data?: ItineraryItem
+    data?: { created: ItineraryItem; items: ItineraryItem[] }
   }>
   onCancel?: () => void
 }
 
-export function AddItineraryItemForm({
-  tripId,
-  day,
-  userId,
-  onSubmit,
-  onCancel
-}: AddItineraryItemFormProps) {
+export function AddItineraryItemForm({ dayId, onSubmit, onCancel }: AddItineraryItemFormProps) {
   const [formData, setFormData] = useState<Partial<CreateItineraryItemData>>({
-    trip_id: tripId,
-    day,
-    created_by: userId,
+    dayId,
     type: 'ACTIVITY'
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [overlaps, setOverlaps] = useState<any[]>([])
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string>('')
+
+  const { places } = usePlaces()
+
+  const handlePlaceSelect = (placeId: string) => {
+    setSelectedPlaceId(placeId)
+
+    if (placeId) {
+      const place = places.find(p => p.id === placeId)
+      if (place) {
+        setFormData(prev => ({
+          ...prev,
+          title: prev.title || place.name,
+          description: prev.description || (place.address ? `Location: ${place.address}` : ''),
+          locationId: place.id
+        }))
+      }
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        locationId: undefined
+      }))
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.title) return
-
     setLoading(true)
     setError(null)
-    setOverlaps([])
-
-    const result = await onSubmit(formData as CreateItineraryItemData)
-
-    if (result.success) {
-      // Reset form
-      setFormData({
-        trip_id: tripId,
-        day,
-        created_by: userId,
-        type: 'ACTIVITY'
-      })
+    const res = await onSubmit(formData as CreateItineraryItemData)
+    if (res.ok) {
+      setFormData({ dayId, type: 'ACTIVITY' })
+      setSelectedPlaceId('')
       onCancel?.()
     } else {
-      setError(result.error || 'Failed to create item')
-      if (result.overlaps) {
-        setOverlaps(result.overlaps)
-      }
+      setError(res.error || 'Failed')
     }
-
     setLoading(false)
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 p-4">
-      <h3 className="font-medium text-gray-900 mb-4">Add New Item</h3>
-
+    <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+      <h3 className="font-medium text-gray-900 dark:text-white mb-4">Add New Item</h3>
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
-          <p className="text-sm text-red-800">{error}</p>
-          {overlaps.length > 0 && (
-            <div className="mt-2">
-              <p className="text-xs text-red-700 font-medium">Time conflicts with:</p>
-              {overlaps.map((overlap, idx) => (
-                <p key={idx} className="text-xs text-red-600">
-                  • {overlap.title} ({formatTime(overlap.start_time)} - {formatTime(overlap.end_time)})
-                </p>
-              ))}
-            </div>
-          )}
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-400 rounded p-2 mb-3">
+          {error}
         </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Place Selector */}
         <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Title *
+          <label className="block text-sm font-medium mb-1 dark:text-stone-300">
+            Select from Places (optional)
           </label>
+          <PlaceSelector
+            value={selectedPlaceId}
+            onValueChange={handlePlaceSelect}
+            placeholder="-- Select a place or enter manually --"
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium mb-1 dark:text-stone-300">Title *</label>
           <input
-            type="text"
             required
             value={formData.title || ''}
-            onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            onChange={e => setFormData(p => ({ ...p, title: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-tea-500 dark:focus:ring-tea-400 focus:border-tea-500"
             placeholder="Enter activity title"
           />
         </div>
 
         <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Description
-          </label>
+          <label className="block text-sm font-medium mb-1 dark:text-stone-300">Description</label>
           <textarea
-            value={formData.description || ''}
-            onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
             rows={2}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            value={formData.description || ''}
+            onChange={e => setFormData(p => ({ ...p, description: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-tea-500 dark:focus:ring-tea-400 focus:border-tea-500"
             placeholder="Optional description"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Type
-          </label>
+          <label className="block text-sm font-medium mb-1 dark:text-stone-300">Type</label>
           <select
             value={formData.type}
-            onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as any }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            onChange={e => setFormData(p => ({ ...p, type: e.target.value as ItineraryItemType }))}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-tea-500 dark:focus:ring-tea-400 focus:border-tea-500"
           >
             <option value="ACTIVITY">Activity</option>
             <option value="TRANSPORT">Transport</option>
@@ -127,35 +124,35 @@ export function AddItineraryItemForm({
           </select>
         </div>
 
-        <div></div> {/* Empty div for grid spacing */}
+        <div />
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Start Time
-          </label>
+          <label className="block text-sm font-medium mb-1 dark:text-stone-300">Start Time</label>
           <input
             type="datetime-local"
-            value={formData.start_time ? formData.start_time.slice(0, 16) : ''}
-            onChange={(e) => setFormData(prev => ({
-              ...prev,
-              start_time: e.target.value ? new Date(e.target.value).toISOString() : undefined
-            }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            value={formData.startTime ? formData.startTime.slice(0, 16) : ''}
+            onChange={e =>
+              setFormData(p => ({
+                ...p,
+                startTime: e.target.value ? new Date(e.target.value).toISOString() : undefined
+              }))
+            }
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-tea-500 dark:focus:ring-tea-400 focus:border-tea-500"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            End Time
-          </label>
+          <label className="block text-sm font-medium mb-1 dark:text-stone-300">End Time</label>
           <input
             type="datetime-local"
-            value={formData.end_time ? formData.end_time.slice(0, 16) : ''}
-            onChange={(e) => setFormData(prev => ({
-              ...prev,
-              end_time: e.target.value ? new Date(e.target.value).toISOString() : undefined
-            }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            value={formData.endTime ? formData.endTime.slice(0, 16) : ''}
+            onChange={e =>
+              setFormData(p => ({
+                ...p,
+                endTime: e.target.value ? new Date(e.target.value).toISOString() : undefined
+              }))
+            }
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-tea-500 dark:focus:ring-tea-400 focus:border-tea-500"
           />
         </div>
       </div>
@@ -165,7 +162,7 @@ export function AddItineraryItemForm({
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-stone-300"
           >
             Cancel
           </button>
@@ -173,19 +170,11 @@ export function AddItineraryItemForm({
         <button
           type="submit"
           disabled={loading || !formData.title}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-4 py-2 text-sm rounded bg-tea-600 hover:bg-tea-700 dark:bg-tea-500 dark:hover:bg-tea-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? 'Creating...' : 'Add Item'}
         </button>
       </div>
     </form>
   )
-}
-
-// Helper function for the overlap display
-function formatTime(dateString: string) {
-  return new Date(dateString).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit'
-  })
 }

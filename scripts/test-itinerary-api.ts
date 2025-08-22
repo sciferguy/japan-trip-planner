@@ -2,65 +2,87 @@
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
-const BASE_URL = 'http://localhost:3000'
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3000'
+const AUTH_COOKIE = process.env.AUTH_COOKIE // e.g. "next-auth.session-token=..."
 
-async function testItineraryAPI() {
-  console.log('🧪 Testing Itinerary API...\n')
+async function main() {
+  console.log('🧪 Testing new itinerary item endpoints...\n')
 
-  try {
-    const trip = await prisma.trips.findFirst()
-    const user = await prisma.user.findFirst()
-
-    if (!trip || !user) {
-      console.error('❌ No trip or user found in database.')
-      return
-    }
-
-    console.log(`📍 Using trip: ${trip.title} (${trip.id})`)
-    console.log(`👤 Using user: ${user.name} (${user.id})\n`)
-
-    // Test 1: Create a new itinerary item
-    console.log('1️⃣ Testing CREATE itinerary item...')
-    const createPayload = {
-      trip_id: trip.id,
-      day: 3, // Changed to day 3 to avoid conflicts
-      title: 'Shibuya Crossing Visit',
-      description: 'Famous scramble crossing experience',
-      start_time: '2024-09-17T10:00:00.000Z',
-      end_time: '2024-09-17T11:30:00.000Z',
-      type: 'ACTIVITY',
-      created_by: user.id,
-    }
-
-    console.log('Payload:', JSON.stringify(createPayload, null, 2))
-
-    const createResponse = await fetch(`${BASE_URL}/api/itinerary`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(createPayload),
-    })
-
-    console.log('Response status:', createResponse.status)
-    console.log('Response headers:', Object.fromEntries(createResponse.headers))
-
-    const createResult = await createResponse.json()
-    console.log('✅ CREATE response:', JSON.stringify(createResult, null, 2))
-
-    // Test 2: Get all items
-    console.log('\n2️⃣ Testing GET all items...')
-    const getAllResponse = await fetch(`${BASE_URL}/api/itinerary?trip_id=${trip.id}`)
-    const getAllResult = await getAllResponse.json()
-    console.log('✅ GET ALL response:', {
-      success: getAllResult.success,
-      count: getAllResult.data?.length,
-    })
-
-  } catch (error) {
-    console.error('💥 Test failed with error:', error)
-  } finally {
-    await prisma.$disconnect()
-    console.log('\n🏁 API tests completed!')
+  // Get the first trip to test with
+  const trip = await prisma.trips.findFirst({
+    orderBy: { created_at: 'asc' }
+  })
+  if (!trip) {
+    console.error('No trip found. Create a trip first.')
+    return
   }
+
+  // Use day 1 for testing
+  const dayNumber = 1
+  console.log(`Using trip: ${trip.id}, day: ${dayNumber}`)
+
+  // CREATE
+  const start = new Date(trip.start_date)
+  start.setHours(9, 0, 0, 0)
+  const end = new Date(trip.start_date)
+  end.setHours(10, 0, 0, 0)
+
+  const createPayload = {
+    title: 'Morning Activity',
+    description: 'Test create',
+    type: 'ACTIVITY',
+    startTime: start.toISOString(),
+    endTime: end.toISOString()
+  }
+
+  const createRes = await fetch(`${BASE_URL}/api/days/${dayNumber}/itinerary-items?tripId=${trip.id}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(AUTH_COOKIE ? { Cookie: AUTH_COOKIE } : {})
+    },
+    body: JSON.stringify(createPayload)
+  })
+  const createJson = await createRes.json()
+  console.log('Create status', createRes.status, createJson)
+  if (!createJson.data?.created?.id) return
+  const createdId = createJson.data.created.id
+
+  // GET items for the day
+  const getRes = await fetch(`${BASE_URL}/api/days/${dayNumber}/itinerary-items?tripId=${trip.id}`, {
+    headers: {
+      ...(AUTH_COOKIE ? { Cookie: AUTH_COOKIE } : {})
+    }
+  })
+  console.log('Get status', getRes.status, await getRes.json())
+
+  // PATCH (overlap by shifting within same hour)
+  const patchRes = await fetch(`${BASE_URL}/api/itinerary-items/${createdId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(AUTH_COOKIE ? { Cookie: AUTH_COOKIE } : {})
+    },
+    body: JSON.stringify({
+      title: 'Updated Activity',
+      startTime: start.toISOString(),
+      endTime: end.toISOString()
+    })
+  })
+  console.log('Patch status', patchRes.status, await patchRes.json())
+
+  // DELETE
+  const delRes = await fetch(`${BASE_URL}/api/itinerary-items/${createdId}`, {
+    method: 'DELETE',
+    headers: {
+      ...(AUTH_COOKIE ? { Cookie: AUTH_COOKIE } : {})
+    }
+  })
+  console.log('Delete status', delRes.status, await delRes.json())
+
+  console.log('\n✅ Test flow completed')
 }
 
-testItineraryAPI()
+main()
+  .catch(e => console.error(e))
+  .finally(() => prisma.$disconnect())
