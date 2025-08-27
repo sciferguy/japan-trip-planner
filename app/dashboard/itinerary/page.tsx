@@ -1,166 +1,13 @@
+'use client'
+
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
-import { auth } from '@/lib/auth'
-import { PrismaClient } from '@prisma/client'
+import { useSession } from 'next-auth/react'
+import { useCurrentTrip } from '@/hooks/useCurrentTrip'
 import ItineraryOverview from '@/components/itinerary/ItineraryOverview'
 import { Button } from '@/components/ui/button'
-import { Plus, Calendar } from 'lucide-react'
+import { Plus, Calendar, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
-
-const prisma = new PrismaClient()
-
-// Trip type that matches ItineraryOverview expectations
-interface Trip {
-  id: string
-  title: string
-  start_date: string
-  end_date: string
-  itinerary_items: Array<{
-    id: string
-    tripId: string
-    dayId: string | null
-    day: number
-    title: string
-    description: string | null
-    startTime: string | null
-    endTime: string | null
-    locationId: string | null
-    type: 'ACTIVITY' | 'TRANSPORT' | 'MEAL' | 'ACCOMMODATION' | 'MEETING' | 'FREE_TIME'
-    createdBy: string
-    createdAt: string
-    overlap: boolean
-  }>
-}
-
-async function getTrip() {
-  // For MVP, get the first trip (single user mode)
-  const trip = await prisma.trips.findFirst({
-    include: {
-      itinerary_items: {
-        include: {
-          day: true,
-          place: true
-        },
-        orderBy: [
-          { day: { date: 'asc' } },
-          { start_time: 'asc' },
-          { created_at: 'asc' }
-        ]
-      }
-    }
-  })
-
-  if (!trip) {
-    return null
-  }
-
-  // Transform to match Trip interface expected by ItineraryOverview
-  const transformedTrip: Trip = {
-    id: trip.id,
-    title: trip.title,
-    start_date: trip.start_date.toISOString(),
-    end_date: trip.end_date.toISOString(),
-    itinerary_items: trip.itinerary_items.map((item, index) => {
-      // Calculate day number from trip start date and item day date
-      const tripStart = new Date(trip.start_date)
-      const itemDate = new Date(item.day.date)
-      const dayNumber = Math.ceil((itemDate.getTime() - tripStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
-
-      return {
-        id: item.id,
-        tripId: trip.id, // Use actual trip id
-        dayId: item.day_id,
-        day: dayNumber,
-        title: item.title,
-        description: item.note, // note field in schema, not description
-        startTime: item.start_time ? item.start_time.toISOString() : null,
-        endTime: item.end_time ? item.end_time.toISOString() : null,
-        locationId: item.place_id, // place_id in schema, not location_id
-        type: item.type as Trip['itinerary_items'][0]['type'],
-        createdBy: item.created_by_user_id,
-        createdAt: item.created_at.toISOString(),
-        overlap: false // Set default value
-      }
-    })
-  }
-
-  return transformedTrip
-}
-
-export default async function ItineraryPage() {
-  const session = await auth()
-  if (!session?.user) {
-    redirect('/sign-in')
-  }
-
-  const trip = await getTrip()
-
-  // Handle no trip case
-  if (!trip) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center py-12">
-          <Calendar size={64} className="mx-auto text-gray-400 mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">No Trip Found</h1>
-          <p className="text-gray-600 mb-6">
-            Create your first Japan trip to start planning your itinerary.
-          </p>
-          <Button asChild>
-            <Link href="/dashboard/">
-              <Plus size={18} className="mr-2" />
-              Create New Trip
-            </Link>
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header with Actions */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {trip.title} Itinerary
-          </h1>
-          <p className="text-gray-600">
-            {new Date(trip.start_date).toLocaleDateString()} - {new Date(trip.end_date).toLocaleDateString()}
-          </p>
-        </div>
-        <div className="flex items-center space-x-3">
-          <Button asChild variant="outline">
-            <Link href={`/dashboard/itinerary/${trip.id}/add`}>
-              <Plus size={18} className="mr-2" />
-              Add Activity
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link href={`/dashboard/itinerary/${trip.id}/edit`}>
-              Edit Trip
-            </Link>
-          </Button>
-        </div>
-      </div>
-
-      <Suspense fallback={<ItinerarySkeleton />}>
-        {/* Overview Component - now receives the correctly typed trip */}
-        <div className="mb-8">
-          <ItineraryOverview
-            trip={trip}
-            userId={session.user.id!}
-          />
-        </div>
-
-        {/* Interactive Day-by-Day View - simplified to just show children */}
-        <div>
-          <h2 className="text-2xl font-bold mb-4">Daily View</h2>
-          {/* Add your day-by-day content here */}
-        </div>
-      </Suspense>
-    </div>
-  )
-}
 
 function ItinerarySkeleton() {
   return (
@@ -175,5 +22,111 @@ function ItinerarySkeleton() {
         </div>
       ))}
     </div>
+  )
+}
+
+export default function ItineraryPage() {
+  const { data: session, status } = useSession()
+  const { currentTrip, loading } = useCurrentTrip()
+  
+  if (status === 'loading' || loading) {
+    return <ItinerarySkeleton />
+  }
+  
+  if (status === 'unauthenticated' || !session?.user) {
+    redirect('/sign-in')
+  }
+
+  if (!currentTrip) {
+    return (
+      <>
+        <div className="border-b bg-white">
+          <div className="container mx-auto px-4 py-3">
+            <Link href="/dashboard" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </Link>
+          </div>
+        </div>
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center py-12">
+            <Calendar size={64} className="mx-auto text-gray-400 mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">No Trip Selected</h1>
+            <p className="text-gray-600 mb-6">
+              Select a trip from the dropdown or create your first trip to start planning.
+            </p>
+            <Button asChild>
+              <Link href="/dashboard">
+                <Plus size={18} className="mr-2" />
+                Go to Dashboard
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  // Transform the currentTrip to match the expected format
+  const transformedTrip = {
+    id: currentTrip.id,
+    title: currentTrip.title,
+    start_date: typeof currentTrip.start_date === 'string' 
+      ? currentTrip.start_date 
+      : currentTrip.start_date.toISOString(),
+    end_date: typeof currentTrip.end_date === 'string'
+      ? currentTrip.end_date
+      : currentTrip.end_date.toISOString(),
+    days: currentTrip.days || [],
+    itinerary_items: currentTrip.itinerary_items || []
+  }
+
+  return (
+    <>
+      <div className="border-b bg-white">
+        <div className="container mx-auto px-4 py-3">
+          <Link href="/dashboard" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Link>
+        </div>
+      </div>
+      
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              {currentTrip.title} Itinerary
+            </h1>
+            <p className="text-gray-600">
+              {new Date(currentTrip.start_date).toLocaleDateString()} - 
+              {new Date(currentTrip.end_date).toLocaleDateString()}
+            </p>
+          </div>
+          <div className="flex items-center space-x-3">
+            <Button asChild variant="outline">
+              <Link href="/dashboard/itinerary/calendar">
+                <Calendar size={18} className="mr-2" />
+                Calendar View
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href={`/dashboard/trips/${currentTrip.id}/settings`}>
+                Trip Settings
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        <Suspense fallback={<ItinerarySkeleton />}>
+          <div className="mb-8">
+            <ItineraryOverview
+              trip={transformedTrip}
+              userId={session.user.id!}
+            />
+          </div>
+        </Suspense>
+      </div>
+    </>
   )
 }

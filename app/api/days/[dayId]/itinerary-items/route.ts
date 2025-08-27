@@ -10,9 +10,9 @@ import { getDayItemsWithOverlaps } from '@/lib/itinerary/overlaps'
 function toApiItineraryItem(item: any) {
   return {
     id: item.id,
-    tripId: item.tripsId || '', // Handle optional trip relation
+    tripId: item.trip_id || '',
     dayId: item.day_id,
-    day: 1, // Default value, calculate properly if needed
+    day: 1,
     title: item.title,
     description: item.note,
     startTime: item.start_time?.toISOString() || null,
@@ -88,20 +88,34 @@ export const POST = (req: Request, { params }: { params: { dayId: string } }) =>
       })
 
       if (!place) {
+        // Add detailed telemetry for mismatches
+        const requestId =
+          (globalThis as any).crypto?.randomUUID?.() ??
+          Math.random().toString(36).slice(2)
+
+        console.error('[ItineraryItems.POST.INVALID_LOCATION]', {
+          requestId,
+          userId: session.user.id,
+          dayId: params.dayId,
+          dayTripId: day.trip_id,
+          selectedLocationId: data.locationId
+        })
+
         return fail(400, 'INVALID_LOCATION', 'Place does not belong to this trip')
       }
     }
 
     const created = await prisma.itinerary_items.create({
       data: {
-        day_id: targetDayId, // Use direct field assignment
+        trip_id: day.trip_id,
+        day_id: targetDayId,
         title: data.title,
         note: data.description,
         type: data.type,
         start_time: data.startTime ? new Date(data.startTime) : null,
         end_time: data.endTime ? new Date(data.endTime) : null,
-        place_id: data.locationId || null, // Use direct field assignment
-        created_by_user_id: session.user.id // Use direct field assignment
+        place_id: data.locationId || null,
+        created_by_user_id: session.user.id
       }
     })
 
@@ -109,7 +123,7 @@ export const POST = (req: Request, { params }: { params: { dayId: string } }) =>
     const items = await getDayItemsWithOverlaps(targetDayId)
 
     return ok({
-      created: toApiItineraryItem({ ...created, overlap: false }), // Add overlap field
+      created: toApiItineraryItem({ ...created, overlap: false }),
       items: items.map(i => toApiItineraryItem(i))
     })
   })

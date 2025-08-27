@@ -1,3 +1,5 @@
+'use client'
+
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -6,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ItineraryItem, UpdateItineraryItemData } from '@/types/itinerary'
 import { DayChoiceModal } from './DayChoiceModal'
-import { PlaceSelector } from '@/components/places/PlaceSelector'
+import PlaceSelector from '@/components/places/PlaceSelector'
 
 interface Props {
   item: ItineraryItem
@@ -29,6 +31,10 @@ export function EditActivityForm({ item, _tripId, tripStartDate, onSubmit, onCan
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Local place state for PlaceSelector (maps to locationId in formData)
+  type BasicPlace = { id: string; name: string; trip_id: string }
+  const [place, setPlace] = useState<BasicPlace | null>(null)
 
   // Day choice modal state
   const [showDayChoice, setShowDayChoice] = useState<{
@@ -144,8 +150,12 @@ export function EditActivityForm({ item, _tripId, tripStartDate, onSubmit, onCan
             </Label>
             <div className="space-y-2">
               <PlaceSelector
-                value={formData.locationId || undefined}
-                onValueChange={(locationId) => setFormData(prev => ({ ...prev, locationId: locationId || undefined }))}
+                activeTripId={_tripId}
+                value={place}
+                onChange={(p) => {
+                  setPlace(p)
+                  setFormData(prev => ({ ...prev, locationId: p?.id }))
+                }}
                 placeholder="Select or add a location"
               />
               {formData.locationId && (
@@ -153,7 +163,10 @@ export function EditActivityForm({ item, _tripId, tripStartDate, onSubmit, onCan
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setFormData(prev => ({ ...prev, locationId: undefined }))}
+                  onClick={() => {
+                    setPlace(null)
+                    setFormData(prev => ({ ...prev, locationId: undefined }))
+                  }}
                   className="text-red-600 hover:text-red-700"
                 >
                   Clear Location

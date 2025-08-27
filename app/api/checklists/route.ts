@@ -45,7 +45,7 @@ export const GET = (req: Request) =>
       return fail(400, 'BAD_REQUEST', 'tripId query param required')
     }
 
-    await requireTripRole(user.id, tripId, 'VIEWER')
+    await requireTripRole(tripId, user.id, 'VIEWER')
 
     const items = await prisma.checklist_items.findMany({
       where: { trip_id: tripId, user_id: user.id },
@@ -72,7 +72,7 @@ export const POST = (req: Request) =>
     }
 
     const { tripId, title, category, completed } = parsed.data
-    await requireTripRole(user.id, tripId, 'EDITOR')
+    await requireTripRole(tripId, user.id, 'EDITOR')
 
     const created = await prisma.checklist_items.create({
       data: {

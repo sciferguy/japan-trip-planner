@@ -32,8 +32,8 @@ async function getTrip(tripId: string) {
 
   return {
     ...trip,
-    start_date: trip.start_date,
-    end_date: trip.end_date
+    startDate: trip.start_date,
+    endDate: trip.end_date
   }
 }
 
@@ -95,7 +95,7 @@ export default async function AddActivityPage({ params, searchParams }: PageProp
               tripId={params.tripId}
               dayId={dayId}
               userId={session.user.id!}
-              tripStartDate={trip.start_date}
+              tripStartDate={trip.startDate}
               onSubmit={handleSubmit}
               onCancel={() => redirect(`/dashboard/itinerary/${params.tripId}`)}
             />

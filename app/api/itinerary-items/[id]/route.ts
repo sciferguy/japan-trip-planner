@@ -1,4 +1,3 @@
-// File: app/api/itinerary-items/[id]/route.ts
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { run, ok, fail } from '@/lib/api/response'
@@ -15,24 +14,26 @@ function mapItem(db: any, overlap?: boolean) {
     id: db.id,
     tripId: db.trip_id,
     dayId: db.day_id,
+    placeId: db.place_id,
     title: db.title,
-    description: db.description,
-    startTime: db.start_time,
-    endTime: db.end_time,
-    locationId: db.location_id,
+    description: db.note ?? null,
+    startTime: db.start_time?.toISOString() || null,
+    endTime: db.end_time?.toISOString() || null,
     type: db.type,
-    createdBy: db.created_by,
-    createdAt: db.created_at,
+    createdBy: db.created_by_user_id,
+    createdAt: db.created_at?.toISOString(),
     overlap: overlap ?? false
   }
 }
 
-export const PATCH = (req: Request, { params }: { params: { id: string } }) =>
+export const PATCH = async (req: Request, { params }: { params: Promise<{ id: string }> }) =>
   run(async () => {
     const session = await auth()
     if (!session?.user?.id) return fail(401, 'UNAUTH', 'Unauthorized')
 
-    const item = await prisma.itinerary_items.findUnique({ where: { id: params.id } })
+    const { id } = await params  // Await params per Next.js 15 requirements
+    
+    const item = await prisma.itinerary_items.findUnique({ where: { id } })
     if (!item) return fail(404, 'NOT_FOUND', 'Item not found')
 
     await requireTripRole(item.trip_id, session.user.id, TripMemberRole.EDITOR)
@@ -46,36 +47,40 @@ export const PATCH = (req: Request, { params }: { params: { id: string } }) =>
         fieldErrors: parsed.error.flatten().fieldErrors
       })
     }
+
     const data = parsed.data
     try {
       ensureUpdateHasFields(data)
     } catch {
-      return fail(400, 'NO_FIELDS', 'No fields to update')
+      return fail(400, 'NO_FIELDS', 'No updatable fields provided')
     }
 
     // Validate move across days
     if (data.dayId) {
-      const newDay = await prisma.days.findUnique({ where: { id: data.dayId } })
-      if (!newDay) return fail(404, 'DAY_NOT_FOUND', 'dayId not found')
-      if (newDay.trip_id !== item.trip_id) {
-        return fail(400, 'CROSS_TRIP', 'Cannot move item to day of different trip')
+      const targetDay = await prisma.days.findUnique({ where: { id: data.dayId } })
+      if (!targetDay) return fail(404, 'DAY_NOT_FOUND', 'Target day not found')
+
+      // Ensure day belongs to same trip
+      if (targetDay.trip_id !== item.trip_id) {
+        return fail(400, 'CROSS_TRIP_MOVE', 'Cannot move item across trips')
       }
     }
 
     const updated = await prisma.itinerary_items.update({
-      where: { id: item.id },
+      where: { id },
       data: {
-        title: data.title ?? undefined,
-        description: data.description !== undefined ? data.description : undefined,
-        type: data.type ?? undefined,
-        start_time: data.startTime
-          ? new Date(data.startTime)
-          : (data.startTime === null ? null : undefined), // (null path unused unless schema adjusted)
-        end_time: data.endTime
-          ? new Date(data.endTime)
-          : (data.endTime === null ? null : undefined),
-        location_id: data.locationId !== undefined ? (data.locationId || null) : undefined,
-        day_id: data.dayId ?? undefined
+        // Use snake_case for database fields per your schema
+        ...(data.title && { title: data.title }),
+        ...(data.description !== undefined && { note: data.description }),
+        ...(data.type && { type: data.type }),
+        ...(data.startTime !== undefined && {
+          start_time: data.startTime ? new Date(data.startTime) : null
+        }),
+        ...(data.endTime !== undefined && {
+          end_time: data.endTime ? new Date(data.endTime) : null
+        }),
+        ...(data.locationId !== undefined && { place_id: data.locationId }),
+        ...(data.dayId && { day_id: data.dayId })
       }
     })
 
@@ -85,22 +90,24 @@ export const PATCH = (req: Request, { params }: { params: { id: string } }) =>
 
     const dayLists: Record<string, any[]> = {}
     for (const dId of affectedDayIds) {
-      const list = await getDayItemsWithOverlaps(dId)
-      dayLists[dId] = list.map(i => mapItem(i, i.overlap))
+      const dayItems = await getDayItemsWithOverlaps(dId)
+      dayLists[dId] = dayItems.map(item => mapItem(item, item.overlap))
     }
 
     return ok({
       updated: mapItem(updated),
-      days: dayLists
+      days: dayLists  // Rename to match what the frontend expects
     })
   })
 
-export const DELETE = (_req: Request, { params }: { params: { id: string } }) =>
+export const DELETE = async (_req: Request, { params }: { params: Promise<{ id: string }> }) =>
   run(async () => {
     const session = await auth()
     if (!session?.user?.id) return fail(401, 'UNAUTH', 'Unauthorized')
 
-    const item = await prisma.itinerary_items.findUnique({ where: { id: params.id } })
+    const { id } = await params  // Await params per Next.js 15 requirements
+    
+    const item = await prisma.itinerary_items.findUnique({ where: { id } })
     if (!item) return fail(404, 'NOT_FOUND', 'Item not found')
 
     await requireTripRole(item.trip_id, session.user.id, TripMemberRole.EDITOR)
@@ -110,8 +117,8 @@ export const DELETE = (_req: Request, { params }: { params: { id: string } }) =>
 
     let items: any[] = []
     if (dayId) {
-      const list = await getDayItemsWithOverlaps(dayId)
-      items = list.map(i => mapItem(i, i.overlap))
+      const dayItems = await getDayItemsWithOverlaps(dayId)
+      items = dayItems.map(item => mapItem(item, item.overlap))
     }
 
     return ok({

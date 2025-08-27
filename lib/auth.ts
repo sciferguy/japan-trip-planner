@@ -12,7 +12,6 @@ const credentialsSchema = z.object({
 });
 
 const config: NextAuthConfig = {
-    // adapter: PrismaAdapter(prisma), // Keep commented out
     secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
     session: { strategy: "jwt" },
     pages: {
@@ -35,6 +34,23 @@ const config: NextAuthConfig = {
             }
             return session;
         },
+        // Add this callback to handle redirects after sign in
+        redirect: async ({ url, baseUrl }) => {
+            console.log('Redirect callback:', { url, baseUrl }); // Add debugging
+
+            // Always redirect to dashboard after successful sign in
+            if (url === baseUrl + "/sign-in" || url.includes("callbackUrl")) {
+                return baseUrl + "/dashboard";
+            }
+
+            // If it's already pointing to dashboard, allow it
+            if (url.startsWith(baseUrl + "/dashboard")) {
+                return url;
+            }
+
+            // Default to dashboard
+            return baseUrl + "/dashboard";
+        },
         signIn: async ({ user, account }) => {
             if (account?.provider === "google") {
                 // Store Google user in database
@@ -43,7 +59,7 @@ const config: NextAuthConfig = {
                 });
 
                 if (!existingUser) {
-                    await prisma.user.create({
+                    const newUser = await prisma.user.create({
                         data: {
                             email: user.email!,
                             name: user.name!,
@@ -51,6 +67,11 @@ const config: NextAuthConfig = {
                             emailVerified: new Date()
                         }
                     });
+                    // Update the user object with the database ID
+                    user.id = newUser.id;
+                } else {
+                    // Update the user object with the existing database ID
+                    user.id = existingUser.id;
                 }
             }
             return true;

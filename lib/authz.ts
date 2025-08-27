@@ -34,8 +34,10 @@ export async function getMembership(tripId: string, userId: string) {
 }
 
 export async function requireMembership(tripId: string, userId: string) {
+  console.log('requireMembership called with:', { tripId, userId })
   const m = await getMembership(tripId, userId)
   if (!m) {
+    console.error('Membership not found for:', { tripId, userId })
     throw new ApiError(403, 'FORBIDDEN', 'Not a trip member')
   }
   return m

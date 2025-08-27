@@ -11,6 +11,7 @@ interface Place {
   source_url?: string
   category?: string
   created_at: string
+  trip_id: string
 }
 
 interface CreatePlaceData {

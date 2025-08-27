@@ -1,0 +1,6 @@
+// ... existing code ...
+
+// Ensure we parse the ok envelope properly:
+const body = await res.json()
+expect(body.ok).toBe(true)
+// body.data has { thisTrip, otherTrips }

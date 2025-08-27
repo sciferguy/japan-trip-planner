@@ -1,20 +1,20 @@
-// store/itinerary-store.ts
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import type { ItineraryItem } from '@/types/itinerary'
 
-interface OptimisticOperation {
-  type: 'create' | 'update' | 'delete' | 'move'
-  previousState: {
-    dayId: string
-    items?: ItineraryItem[]
-    item?: ItineraryItem
-    index?: number
-    fromDayId?: string
-    toDayId?: string
-    fromIndex?: number
-  }
-  timestamp: number
+export interface ItineraryItem {
+  id: string
+  tripId: string
+  dayId: string
+  day: number
+  title: string
+  description: string | null
+  startTime: string | null
+  endTime: string | null
+  locationId: string | null
+  type: 'ACTIVITY' | 'TRANSPORT' | 'MEAL' | 'ACCOMMODATION' | 'MEETING' | 'FREE_TIME'
+  createdBy: string
+  createdAt: string
+  overlap: boolean
 }
 
 interface ItineraryState {
@@ -26,6 +26,12 @@ interface ItineraryState {
   optimisticOperations: Map<string, OptimisticOperation>
 }
 
+interface OptimisticOperation {
+  type: 'create' | 'update' | 'delete' | 'move'
+  previousState: any
+  timestamp: number
+}
+
 interface ItineraryActions {
   setDayItems: (dayId: string, items: ItineraryItem[]) => void
   setSelectedDayId: (dayId: string | null) => void
@@ -33,23 +39,21 @@ interface ItineraryActions {
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   clearError: () => void
+
   optimisticCreateItem: (tempId: string, dayId: string, item: Partial<ItineraryItem>) => void
   optimisticUpdateItem: (id: string, dayId: string, updates: Partial<ItineraryItem>) => void
   optimisticDeleteItem: (id: string, dayId: string) => void
   optimisticMoveItem: (id: string, fromDayId: string, toDayId: string, updates: Partial<ItineraryItem>) => void
-  confirmOptimisticOperation: (operationId: string, serverData?: { dayId: string; items: ItineraryItem[] }) => void
+
+  confirmOptimisticOperation: (operationId: string, serverData?: any) => void
   rollbackOptimisticOperation: (operationId: string) => void
   rollbackAllOptimistic: () => void
 }
 
-// Helper function to handle rollback logic
-const rollbackOperation = (
-  updatedItemsByDay: Record<string, ItineraryItem[]>,
-  operation: OptimisticOperation
-) => {
+const rollbackOperation = (updatedItemsByDay: Record<string, ItineraryItem[]>, operation: OptimisticOperation) => {
   switch (operation.type) {
     case 'create':
-      if (operation.previousState.items) {
+      if (operation.previousState.dayId && operation.previousState.items) {
         updatedItemsByDay[operation.previousState.dayId] = operation.previousState.items
       }
       break

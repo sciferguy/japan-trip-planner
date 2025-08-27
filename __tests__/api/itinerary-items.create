@@ -1,0 +1,16 @@
+// ... existing code ...
+
+// Ensure created_at/start_time/end_time are Dates as route maps toISOString
+;(prisma.itinerary_items.create as jest.Mock).mockResolvedValue({
+  id: 'item-1',
+  trip_id: 'trip-1',
+  day_id: 'day-1',
+  title: 'Visit',
+  note: 'Notes',
+  type: 'ACTIVITY',
+  start_time: new Date(),
+  end_time: new Date(),
+  place_id: 'place-1',
+  created_by_user_id: 'user-1',
+  created_at: new Date()
+})

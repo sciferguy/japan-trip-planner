@@ -30,9 +30,9 @@ async function getTripAndDay(dateStr: string) {
   return {
     trip: {
       ...trip,
-      start_date: trip.start_date.toISOString(),
-      end_date: trip.end_date.toISOString(),
-      created_at: trip.created_at.toISOString()
+      startDate: trip.start_date.toISOString(),
+      endDate: trip.end_date.toISOString(),
+      createdAt: trip.created_at.toISOString()
     },
     dayNumber,
     date: targetDate
