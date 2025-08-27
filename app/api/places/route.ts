@@ -1,13 +1,19 @@
 // app/api/places/route.ts
-import { run, ok, fail } from '@/lib/api/response'
-import { getSessionUser, requireTripRole } from '@/lib/authz'
-import { createPlaceSchema } from '@/lib/validation/places'
 import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth-helpers'
+import { run, ok, fail } from '@/lib/api/response'
+import { auth } from '@/lib/auth'
+import { requireMembership, requireTripRole } from '@/lib/authz'
+import { createPlaceSchema } from '@/lib/validation/places'
+import { TripMemberRole } from '@prisma/client'
 
 export const GET = (req: Request) =>
   run(async () => {
-    const user = await getCurrentUser()
+    const session = await auth()
+    if (!session?.user?.id) {
+      return fail(401, 'UNAUTH', 'Unauthorized')
+    }
+
+    const userId = session.user.id
     const url = new URL(req.url)
     const tripId = url.searchParams.get('tripId')
 
@@ -15,11 +21,11 @@ export const GET = (req: Request) =>
       return fail(400, 'MISSING_TRIP_ID', 'tripId query parameter is required')
     }
 
-    await requireTripRole(user.id, tripId, 'VIEWER')
+    await requireMembership(tripId, userId)
 
     const places = await prisma.places.findMany({
       where: { trip_id: tripId },
-      orderBy: { created_at: 'desc' },
+      orderBy: { name: 'asc' },
       select: {
         id: true,
         name: true,
@@ -29,7 +35,8 @@ export const GET = (req: Request) =>
         source_url: true,
         category: true,
         created_at: true,
-        created_by_user_id: true
+        created_by_user_id: true,
+        trip_id: true  // ✅ Added trip_id to select
       }
     })
 
@@ -38,7 +45,12 @@ export const GET = (req: Request) =>
 
 export const POST = (req: Request) =>
   run(async () => {
-    const user = await getCurrentUser()
+    const session = await auth()
+    if (!session?.user?.id) {
+      return fail(401, 'UNAUTH', 'Unauthorized')
+    }
+
+    const userId = session.user.id
     const url = new URL(req.url)
     const tripId = url.searchParams.get('tripId')
 
@@ -46,7 +58,7 @@ export const POST = (req: Request) =>
       return fail(400, 'MISSING_TRIP_ID', 'tripId query parameter is required')
     }
 
-    await requireTripRole(user.id, tripId, 'EDITOR')
+    await requireTripRole(tripId, userId, TripMemberRole.EDITOR)
 
     const body = await req.json().catch(() => null)
     if (!body) return fail(400, 'BAD_JSON', 'Invalid JSON')
@@ -62,7 +74,7 @@ export const POST = (req: Request) =>
       data: {
         ...parsed.data,
         trip_id: tripId,
-        created_by_user_id: user.id
+        created_by_user_id: userId
       },
       select: {
         id: true,
@@ -73,7 +85,8 @@ export const POST = (req: Request) =>
         source_url: true,
         category: true,
         created_at: true,
-        created_by_user_id: true
+        created_by_user_id: true,
+        trip_id: true  // ✅ Added trip_id to select
       }
     })
 

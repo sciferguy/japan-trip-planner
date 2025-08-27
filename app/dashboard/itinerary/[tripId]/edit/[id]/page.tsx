@@ -57,8 +57,8 @@ async function getActivityAndTrip(itemId: string, tripId: string) {
     item: transformedItem,
     trip: {
       ...trip,
-      start_date: trip.start_date,
-      end_date: trip.end_date
+      startDate: trip.start_date,
+      endDate: trip.end_date
     }
   }
 }
@@ -127,7 +127,7 @@ export default async function EditActivityPage({ params }: PageProps) {
             <EditActivityForm
               item={item}
               _tripId={params.tripId}
-              tripStartDate={trip.start_date instanceof Date ? trip.start_date : new Date(trip.start_date)}
+              tripStartDate={trip.startDate instanceof Date ? trip.startDate : new Date(trip.startDate)}
               onSubmit={handleSubmit}
               onCancel={() => redirect(`/dashboard/itinerary/${params.tripId}`)}
             />

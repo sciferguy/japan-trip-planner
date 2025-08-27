@@ -1,4 +1,3 @@
-// tailwind.config.js
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ["class"],
@@ -12,8 +11,14 @@ module.exports = {
   theme: {
     container: {
       center: true,
-      padding: "2rem",
-      screens: { "2xl": "1400px" }
+      padding: "1rem",
+      screens: {
+        "sm": "640px",
+        "md": "768px",
+        "lg": "1024px",
+        "xl": "1280px",
+        "2xl": "1400px"
+      }
     },
     extend: {
       colors: {
@@ -103,6 +108,28 @@ module.exports = {
           950: "#2d1f19"
         }
       },
+      padding: {
+        'safe-top': 'env(safe-area-inset-top)',
+        'safe-bottom': 'env(safe-area-inset-bottom)',
+        'safe-left': 'env(safe-area-inset-left)',
+        'safe-right': 'env(safe-area-inset-right)',
+      },
+      spacing: {
+        'safe-top': 'env(safe-area-inset-top)',
+        'safe-bottom': 'env(safe-area-inset-bottom)',
+        'safe-left': 'env(safe-area-inset-left)',
+        'safe-right': 'env(safe-area-inset-right)',
+      },
+      height: {
+        'screen-safe': 'calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
+        'mobile-header': '4rem',
+        'mobile-bottom-nav': '5rem',
+        'mobile-content': 'calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 4rem - 5rem)',
+      },
+      minHeight: {
+        'screen-safe': 'calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
+        'touch-target': '44px',
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
@@ -124,13 +151,18 @@ module.exports = {
         "slide-in": {
           "0%": { transform: "translateX(-100%)" },
           "100%": { transform: "translateX(0)" }
+        },
+        "slide-up": {
+          "0%": { opacity: "0", transform: "translateY(20px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" }
         }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.5s ease-out",
-        "slide-in": "slide-in 0.3s ease-out"
+        "slide-in": "slide-in 0.3s ease-out",
+        "slide-up": "slide-up 0.3s ease-out"
       },
       fontFamily: {
         sans: ["Inter", "Noto Sans JP", "sans-serif"],
@@ -138,11 +170,10 @@ module.exports = {
       },
       boxShadow: {
         zen: "0 4px 20px -2px rgba(0,0,0,0.08), 0 2px 8px -2px rgba(0,0,0,0.04)",
-        "zen-lg": "0 10px 40px -4px rgba(0,0,0,0.1), 0 4px 16px -4px rgba(0,0,0,0.06)"
+        "zen-lg": "0 10px 40px -4px rgba(0,0,0,0.1), 0 4px 16px -4px rgba(0,0,0,0.06)",
+        "mobile": "0 -2px 16px -2px rgba(0,0,0,0.1)"
       }
     }
   },
   plugins: [require("tailwindcss-animate")]
 };
-
-// app/globals.css (no change needed for variables since we adopted RGB model)

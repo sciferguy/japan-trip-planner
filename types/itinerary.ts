@@ -6,7 +6,7 @@ export * from '../lib/validation/itinerary'
 export interface ItineraryItem {
   id: string
   tripId: string
-  dayId: string | null
+  dayId: string
   day: number // legacy field for backward compatibility
   title: string
   description: string | null

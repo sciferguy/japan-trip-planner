@@ -101,18 +101,19 @@ export const POST = (req: Request, { params }: { params: { dayId: string } }) =>
       }
     }
 
-    const created = await prisma.itinerary_items.create({
-      data: {
-        day_id: params.dayId,
-        title: data.title,
-        note: data.description || null,
-        type: data.type,
-        start_time: data.startTime ? new Date(data.startTime) : null,
-        end_time: data.endTime ? new Date(data.endTime) : null,
-        place_id: data.locationId || null,
-        created_by_user_id: session.user.id
-      }
-    })
+      const created = await prisma.itinerary_items.create({
+          data: {
+              trip_id: day.trip_id, // required field
+              day_id: params.dayId,
+              title: data.title,
+              note: data.description || null,
+              type: data.type,
+              start_time: data.startTime ? new Date(data.startTime) : null,
+              end_time: data.endTime ? new Date(data.endTime) : null,
+              place_id: data.locationId || null,
+              created_by_user_id: session.user.id
+          }
+      })
 
     const items = await getDayItemsWithOverlaps(params.dayId)
 

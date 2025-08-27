@@ -23,10 +23,10 @@ model User {
   checklist_items checklist_items[]
   expenses        expenses[]
   itinerary_items itinerary_items[]
+  places          places[]
   reservations    reservations[]
   trip_members    trip_members[]
   trips           trips[]
-  places          places[]
 
   @@map("users")
 }
@@ -70,30 +70,63 @@ model VerificationToken {
 }
 
 model trips {
-  id              String            @id @default(cuid())
-  title           String
-  start_date      DateTime
-  end_date        DateTime
-  created_by      String
-  created_at      DateTime          @default(now())
-  activities      activities[]
-  checklist_items checklist_items[]
-  expenses        expenses[]
-  itinerary_items itinerary_items[]
-  locations       locations[]
-  reservations    reservations[]
-  trip_members    trip_members[]
-  users           User              @relation(fields: [created_by], references: [id])
-  days            days[]
-  places          places[]
+  id                   String            @id @default(cuid())
+  title                String
+  start_date           DateTime
+  end_date             DateTime
+  created_by           String
+  created_at           DateTime          @default(now())
+  home_currency        String            @default("USD")
+  budget_accommodation Float?
+  budget_activities    Float?
+  budget_food          Float?
+  budget_misc          Float?
+  budget_shopping      Float?
+  budget_total         Float?
+  budget_transport     Float?
+  activities           activities[]
+  checklist_items      checklist_items[]
+  days                 days[]
+  expenses             expenses[]
+  itinerary_items      itinerary_items[]
+  locations            locations[]
+  places               places[]
+  reservations         reservations[]
+  trip_members         trip_members[]
+  users                User              @relation(fields: [created_by], references: [id])
+}
+
+model itinerary_items {
+  id                 String            @id @default(cuid())
+  trip_id            String            @map("trip_id")
+  title              String
+  description        String?
+  start_time         DateTime?         @map("start_time")
+  end_time           DateTime?         @map("end_time")
+  type               ItineraryItemType
+  created_at         DateTime          @default(now()) @map("created_at")
+  created_by_user_id String            @map("created_by_user_id")
+  day_id             String            @map("day_id")
+  note               String?
+  place_id           String?           @map("place_id")
+  status             ItemStatus        @default(PLANNED)
+  sort_order         Int?
+  created_by_user    User              @relation(fields: [created_by_user_id], references: [id])
+  day                days              @relation(fields: [day_id], references: [id], onDelete: Cascade)
+  place              places?           @relation(fields: [place_id], references: [id])
+  trip               trips             @relation(fields: [trip_id], references: [id])
+
+  @@index([day_id, start_time])
+  @@map("itinerary_items")
 }
 
 model days {
   id              String            @id @default(cuid())
-  trip_id         String
+  trip_id         String            @map("trip_id")
   date            DateTime          @db.Date
   note            String?
   trip            trips             @relation(fields: [trip_id], references: [id], onDelete: Cascade)
+  expenses        expenses[]
   itinerary_items itinerary_items[]
   weather_cache   weather_cache?
 
@@ -111,151 +144,141 @@ model places {
   category           String?
   created_by_user_id String
   created_at         DateTime          @default(now())
-  trip               trips             @relation(fields: [trip_id], references: [id], onDelete: Cascade)
-  created_by_user    User              @relation(fields: [created_by_user_id], references: [id])
   itinerary_items    itinerary_items[]
-}
-
-model itinerary_items {
-  id                 String            @id @default(cuid())
-  day_id             String
-  place_id           String?
-  title              String
-  start_time         DateTime?
-  end_time           DateTime?
-  note               String?
-  status             ItemStatus        @default(PLANNED)
-  type               ItineraryItemType
-  created_by_user_id String
-  created_at         DateTime          @default(now())
-  day                days              @relation(fields: [day_id], references: [id], onDelete: Cascade)
-  place              places?           @relation(fields: [place_id], references: [id])
   created_by_user    User              @relation(fields: [created_by_user_id], references: [id])
-  trips              trips?            @relation(fields: [tripsId], references: [id])
-  tripsId            String?
-  locations          locations?        @relation(fields: [locationsId], references: [id])
-  locationsId        String?
-
-  @@index([day_id, start_time])
+  trip               trips             @relation(fields: [trip_id], references: [id], onDelete: Cascade)
 }
 
 model expenses {
   id                 String           @id @default(cuid())
   trip_id            String
-  label              String
-  amount_original    Float
-  currency_original  String
-  fx_rate            Float
-  amount_jpy         Float
   category           ExpenseCategory?
   date               DateTime
-  created_by_user_id String
   created_at         DateTime         @default(now())
-  trip               trips            @relation(fields: [trip_id], references: [id], onDelete: Cascade)
+  amount_jpy         Float
+  amount_original    Float
+  created_by_user_id String
+  currency_original  String
+  fx_rate            Float
+  label              String
+  day_id             String?
+  expense_type       ExpenseType      @default(ACTUAL)
   created_by_user    User             @relation(fields: [created_by_user_id], references: [id])
+  day                days?            @relation(fields: [day_id], references: [id])
+  trip               trips            @relation(fields: [trip_id], references: [id], onDelete: Cascade)
 
   @@index([trip_id, date])
 }
 
 model trip_members {
-  id        String         @id @default(cuid())
-  trip_id   String
-  user_id   String
-  role      TripMemberRole @default(VIEWER)
-  joined_at DateTime       @default(now())
-  trip      trips          @relation(fields: [trip_id], references: [id], onDelete: Cascade)
-  user      User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id      String         @id @default(cuid())
+  trip_id String
+  user_id String
+  role    TripMemberRole @default(VIEWER)
+  trip    trips          @relation(fields: [trip_id], references: [id], onDelete: Cascade)
+  user    User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@unique([trip_id, user_id])
 }
 
 model weather_cache {
-  id         String   @id @default(cuid())
-  day_id     String   @unique
-  fetched_at DateTime
-  json       Json
-  day        days     @relation(fields: [day_id], references: [id], onDelete: Cascade)
+  id      String   @id @default(cuid())
+  day_id  String   @unique
+  weather Json
+  fetched DateTime @default(now())
+  day     days     @relation(fields: [day_id], references: [id], onDelete: Cascade)
 }
 
 model checklist_items {
-  id         String            @id @default(cuid())
-  trip_id    String
-  user_id    String
-  title      String
-  completed  Boolean           @default(false)
-  category   ChecklistCategory
-  created_at DateTime          @default(now())
-  trips      trips             @relation(fields: [trip_id], references: [id], onDelete: Cascade)
-  users      User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id           String            @id @default(cuid())
+  trip_id      String
+  user_id      String
+  title        String
+  completed    Boolean           @default(false)
+  category     ChecklistCategory @default(GENERAL)
+  created_at   DateTime          @default(now())
+  completed_at DateTime?
+  due_date     DateTime?
+  priority     Priority          @default(MEDIUM)
+  trip         trips             @relation(fields: [trip_id], references: [id], onDelete: Cascade)
+  user         User              @relation(fields: [user_id], references: [id])
 }
 
 model activities {
-  id                 String     @id @default(cuid())
-  trip_id            String
-  title              String
-  description        String?
-  location_id        String?
-  estimated_duration Int?
-  priority           Priority   @default(MEDIUM)
-  completed          Boolean    @default(false)
-  created_at         DateTime   @default(now())
-  locations          locations? @relation(fields: [location_id], references: [id])
-  trips              trips      @relation(fields: [trip_id], references: [id], onDelete: Cascade)
+  id          String     @id @default(cuid())
+  trip_id     String
+  description String?
+  location_id String?
+  created_at  DateTime   @default(now())
+  image_url   String?
+  name        String
+  price_level Int?
+  rating      Float?
+  url         String?
+  location    locations? @relation(fields: [location_id], references: [id])
+  trip        trips      @relation(fields: [trip_id], references: [id], onDelete: Cascade)
 }
 
 model locations {
-  id              String            @id @default(cuid())
-  name            String
-  address         String
-  lat             Float
-  lng             Float
-  google_place_id String?
-  custom_notes    String?
-  pin_type        PinType
-  trip_id         String
-  activities      activities[]
-  itinerary_items itinerary_items[]
-  trips           trips             @relation(fields: [trip_id], references: [id], onDelete: Cascade)
-  reservations    reservations[]
+  id           String         @id @default(cuid())
+  name         String
+  address      String?
+  lat          Float
+  lng          Float
+  pin_type     PinType        @default(CUSTOM)
+  trip_id      String
+  created_at   DateTime       @default(now())
+  activities   activities[]
+  trip         trips          @relation(fields: [trip_id], references: [id], onDelete: Cascade)
+  reservations reservations[]
 }
 
 model reservations {
-  id                String          @id @default(cuid())
-  trip_id           String
-  type              ReservationType
-  title             String
-  confirmation_code String?
-  date_time         DateTime
-  location_id       String?
-  cost              Float?
-  notes             String?
-  created_by        String
-  created_at        DateTime        @default(now())
-  users             User            @relation(fields: [created_by], references: [id])
-  locations         locations?      @relation(fields: [location_id], references: [id])
-  trips             trips           @relation(fields: [trip_id], references: [id], onDelete: Cascade)
+  id           String          @id @default(cuid())
+  trip_id      String
+  type         ReservationType
+  location_id  String?
+  notes        String?
+  created_by   String
+  created_at   DateTime        @default(now())
+  confirmation String?
+  date         DateTime
+  name         String
+  party_size   Int?
+  time         String?
+  user         User            @relation(fields: [created_by], references: [id])
+  location     locations?      @relation(fields: [location_id], references: [id])
+  trip         trips           @relation(fields: [trip_id], references: [id], onDelete: Cascade)
 }
 
 enum ItemStatus {
   PLANNED
-  DONE
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }
 
 enum ChecklistCategory {
-  PACKING
   DOCUMENTS
-  SHOPPING
+  PACKING
+  BOOKING
   PREPARATION
-  OTHER
+  GENERAL
 }
 
 enum ExpenseCategory {
-  FOOD
   TRANSPORT
-  SHOPPING
-  ACTIVITIES
   ACCOMMODATION
+  FOOD
+  ACTIVITIES
+  SHOPPING
+  MISC
   OTHER
+}
+
+enum ExpenseType {
+  PLANNED
+  ACTUAL
 }
 
 enum ItineraryItemType {
@@ -268,11 +291,10 @@ enum ItineraryItemType {
 }
 
 enum PinType {
-  HOTEL
   RESTAURANT
   ATTRACTION
-  TRAIN_STATION
-  AIRPORT
+  HOTEL
+  TRANSPORT
   SHOPPING
   CUSTOM
 }
@@ -281,15 +303,15 @@ enum Priority {
   LOW
   MEDIUM
   HIGH
+  CRITICAL
 }
 
 enum ReservationType {
-  FLIGHT
-  HOTEL
-  TRAIN
   RESTAURANT
+  HOTEL
   ACTIVITY
   TRANSPORT
+  OTHER
 }
 
 enum TripMemberRole {
@@ -299,11 +321,10 @@ enum TripMemberRole {
 }
 
 enum TripPermission {
-  EDIT_ITINERARY
-  MANAGE_RESERVATIONS
-  MANAGE_EXPENSES
-  MANAGE_ACTIVITIES
-  VIEW_ONLY
+  READ
+  WRITE
+  DELETE
+  ADMIN
 }
 
 enum UserRole {

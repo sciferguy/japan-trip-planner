@@ -1,36 +1,66 @@
-import { useEffect, useRef } from 'react'
+// hooks/useCurrentTrip.ts
+import { useEffect, useRef, useCallback } from 'react'
 import { useTripStore } from '@/store/trip-store'
+import type { TripWithRelations } from '@/types/trip'
 
-export function useCurrentTrip() {
-  const { currentTrip, trips, isLoading, setCurrentTrip, setTrips, setLoading } = useTripStore()
+// Define explicit return type
+interface UseCurrentTripReturn {
+  tripId: string | null
+  trips: any[]
+  currentTrip: TripWithRelations | null
+  switchTrip: (tripId: string) => void
+  loading: boolean
+}
+
+export const useCurrentTrip = (): UseCurrentTripReturn => {
+  const {
+    trips,
+    currentTrip,
+    setTrips,
+    setCurrentTrip,
+    isLoading: loading,
+    setLoading
+  } = useTripStore()
+  
   const hasInitialized = useRef(false)
-
+  
+  const switchTrip = useCallback((tripId: string) => {
+    const trip = trips.find(t => t.id === tripId)
+    if (trip) {
+      console.log('[useCurrentTrip] Switching to trip:', trip.title)
+      setCurrentTrip(trip)
+      localStorage.setItem('currentTripId', tripId)
+    }
+  }, [trips, setCurrentTrip])
+  
   useEffect(() => {
     const initializeTrip = async () => {
       if (hasInitialized.current) return
       hasInitialized.current = true
-
+      
       setLoading(true)
-
+      
       try {
-        // Fetch user's trips
         const response = await fetch('/api/trips')
         const data = await response.json()
-
+        
         if (data.ok && data.data.length > 0) {
           setTrips(data.data)
-
-          // If no current trip, set the first one
-          if (!currentTrip) {
-            const storedTripId = localStorage.getItem('currentTripId')
-            const trip = storedTripId
-              ? data.data.find((t: any) => t.id === storedTripId)
-              : data.data[0]
-
-            if (trip) {
-              setCurrentTrip(trip)
-              localStorage.setItem('currentTripId', trip.id)
-            }
+          
+          const storedTripId = localStorage.getItem('currentTripId')
+          let selectedTrip = null
+          
+          if (storedTripId) {
+            selectedTrip = data.data.find((t: any) => t.id === storedTripId)
+          }
+          
+          if (!selectedTrip) {
+            selectedTrip = data.data[0]
+          }
+          
+          if (selectedTrip) {
+            setCurrentTrip(selectedTrip)
+            localStorage.setItem('currentTripId', selectedTrip.id)
           }
         }
       } catch (error) {
@@ -39,26 +69,17 @@ export function useCurrentTrip() {
         setLoading(false)
       }
     }
-
-    // Only run once when the hook mounts
+    
     if (!hasInitialized.current) {
       initializeTrip()
     }
-  }, []) // Empty dependency array
-
-  const switchTrip = (tripId: string) => {
-    const trip = trips.find(t => t.id === tripId)
-    if (trip) {
-      setCurrentTrip(trip)
-      localStorage.setItem('currentTripId', tripId)
-    }
-  }
-
+  }, [setTrips, setCurrentTrip, setLoading])
+  
   return {
-    tripId: currentTrip?.id || null,
-    currentTrip,
+    tripId: currentTrip?.id || null,  // ADD THIS LINE
     trips,
-    loading: isLoading,
-    switchTrip
+    currentTrip,
+    switchTrip,
+    loading
   }
 }

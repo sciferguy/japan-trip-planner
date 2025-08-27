@@ -1,0 +1,10 @@
+// ... existing code ...
+
+// Ensure requireTripRole is mocked with enum:
+import { TripMemberRole } from '@prisma/client'
+
+// In mock:
+jest.spyOn(authz, 'requireTripRole').mockImplementation(async (_tripId, _userId, role) => {
+  if (role !== TripMemberRole.EDITOR) throw new Error('wrong role')
+  return {} as any
+})
